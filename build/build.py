@@ -1,20 +1,29 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Gera a dashboard estatica (index.html) a partir de duas abas da planilha central:
+Gera a dashboard estatica (index.html) a partir de 4 abas da planilha central
+MedNexus | Planilha Central:
 
-  - "Leads" (gid <<PREENCHER: gid da aba de Leads>>): leads reais + coluna de faturamento => qualificacao
-  - "Meta Ads" (gid <<PREENCHER: gid da aba de mídia paga>>): investimento/impressoes/cliques do gerenciador
+  - "Conversas" (gid 718101807): fonte PRINCIPAL de leads ("Leads MSG") — webhook
+    da Umbler disparado na 1a mensagem recebida no WhatsApp Business. Usada em
+    TODOS os graficos/cards/tabelas/calculos de conversao.
+  - "Leads" (gid 179764332): fonte ANTIGA ("Leads LP") — popup/form de uma epoca
+    em que a captura via WhatsApp direto ainda nao existia. So e contada (total),
+    nunca entra em grafico/card/tabela/conversao.
+  - "Meta Ads" (gid 316997495): investimento/impressoes/cliques do gerenciador.
+  - "New Subscriptions" / Compradores (gid 510373601): usada para cruzar por
+    TELEFONE com a Conversas e atribuir Venda/Faturamento ao anuncio de origem.
 
-Criterio de Lead Qualificado (MQL): <<PREENCHER: critério de qualificação do cliente
-(ex.: faturamento medio mensal >= R$ X, coluna "..." da planilha)>>.
+Criterio de Lead Qualificado (MQL): coluna "E medico?" (Conversas) / "Medico?"
+(Leads) == "Sim".
 
-Este script apenas LE as planilhas (export CSV publico) e emite os REGISTROS BRUTOS
-(leads[] e meta[]) dentro do HTML. Todos os filtros, agregacoes, KPIs, tabelas e
-graficos sao calculados no navegador (client-side), permitindo filtro por data e
-filtro cruzado bidirecional sem recarregar. Nunca escreve nada de volta.
+Este script apenas LE as planilhas (export CSV publico) e emite os REGISTROS
+BRUTOS (leads[] e meta[]) dentro do HTML. Todos os filtros, agregacoes, KPIs,
+tabelas e graficos sao calculados no navegador (client-side). Nunca escreve
+nada de volta.
 
-Teste local: --leads-file / --meta-file apontando para CSVs baixados.
+Teste local: --conversas-file / --meta-file / --sales-file / --leads-file
+apontando para CSVs baixados.
 """
 from __future__ import annotations
 
@@ -29,21 +38,23 @@ import unicodedata
 import urllib.request
 from datetime import datetime, timezone, timedelta
 
-SPREADSHEET_ID = "<<PREENCHER: ID da planilha Google Sheets (só leitura, export CSV público)>>"
-GID_LEADS = "<<PREENCHER: gid da aba de Leads>>"
-GID_META = "<<PREENCHER: gid da aba de mídia paga>>"
+SPREADSHEET_ID = "1npTWHf_taXBhGlOT-WFtlt7CvX44sVbKf8WGs8nQhgE"
+GID_CONVERSAS = "718101807"   # fonte principal de leads ("Leads MSG", webhook Umbler)
+GID_LEADS = "179764332"       # fonte antiga ("Leads LP", popup/form) — só contada
+GID_META = "316997495"
+GID_SALES = "510373601"       # "New Subscriptions" / Compradores — cruzada por telefone
 EXPORT_URL = "https://docs.google.com/spreadsheets/d/{sid}/export?format=csv&gid={gid}"
 
 # Identificação do cliente/conta (usada só em textos/relatórios — não afeta o cruzamento de dados).
-CLIENT_NAME = "<<PREENCHER: nome do cliente/negócio>>"
-MAIN_PRODUCT = "<<PREENCHER: nome do produto/oferta principal>>"
-MAIN_PRODUCT_PREFIX = "<<PREENCHER: sigla/prefixo do funil ou produto usado nos nomes de campanha>>"
-# Reservado para quando houver uma aba de vendas/compradores (ver "Lacunas de dados"
-# no CLAUDE.md) — ainda não usado em process()/build.py; ligar quando a fonte existir.
-GID_SALES = "<<PREENCHER: gid da aba de vendas/compradores, quando existir>>"
+CLIENT_NAME = "MedNexus"
+MAIN_PRODUCT = "MedNexus"
+# Prefixo comum a TODAS as campanhas da conta (inclui campanhas antigas fora do
+# padrão "MEDNEXUS | <etapa> | ..."). Não filtra por sub-funil (E2-CAP/E6-VEN) —
+# o cliente pediu para manter todas as campanhas no dashboard.
+MAIN_PRODUCT_PREFIX = "MEDNEXUS"
 
 BRT = timezone(timedelta(hours=-3))   # horario de Brasilia (exibicao)
-TAX_FACTOR = 1.0                      # <<PREENCHER: imposto/taxa da conta de mídia (1.0 se não houver)>>
+TAX_FACTOR = 1.13806                  # imposto/taxa da conta de mídia (13,806%)
 
 # --------------------------------------------------------------------------- #
 # Regras da aba Relatório (Top/Piores anúncios)
@@ -135,45 +146,14 @@ def is_test_lead(rowtext: str) -> bool:
     return "<test lead" in rowtext.lower()
 
 
-_MONEY_RE = re.compile(r"\d[\d.]*(?:,\d+)?")
-MQL_FATURAMENTO_MIN = 0.0  # <<PREENCHER: limiar de faturamento (R$) que define o MQL do cliente novo>>
+def is_medico(v: str | None) -> bool:
+    """Critério de MQL: coluna "É médico?" (Conversas) / "Médico?" (Leads) == "Sim"."""
+    return norm(v) in ("sim", "s", "yes", "true", "1")
 
 
-def _money_values(s: str) -> list[float]:
-    out = []
-    for tok in _MONEY_RE.findall(s):
-        t = tok.replace(".", "").replace(",", ".")
-        try:
-            out.append(float(t))
-        except ValueError:
-            pass
-    return out
-
-
-def is_qualified(bucket: str | None) -> bool:
-    """<<PREENCHER: critério de MQL do cliente novo>> — assume por padrão faixas de
-    faturamento no formato "Entre R$X e R$Y" / "Menos de R$X" / "Mais de R$X" (mesma
-    coluna de qualificação da planilha). Ajuste esta função se o critério do cliente
-    novo não for baseado em faixa de faturamento (ex.: outra pergunta do formulário,
-    outro tipo de corte)."""
-    s = norm(bucket)
-    if not s or "test lead" in s:
-        return False
-    nums = _money_values(s)
-    if not nums:
-        return False
-    if "menos" in s or "ate " in s or "abaixo" in s:
-        return False
-    if "entre" in s:
-        return min(nums) >= MQL_FATURAMENTO_MIN
-    if any(k in s for k in ("mais", "acima", "superior", "maior")):
-        return max(nums) >= MQL_FATURAMENTO_MIN
-    return max(nums) >= MQL_FATURAMENTO_MIN
-
-
-def pretty_bucket(bucket: str) -> str:
-    s = (bucket or "").strip()
-    return s.replace("_", " ").replace(" e ", " a ").capitalize() if s else "Sem resposta"
+def pretty_specialty(v: str) -> str:
+    s = (v or "").strip()
+    return s if s else "Sem resposta"
 
 
 def mask_email(e: str) -> str:
@@ -190,6 +170,10 @@ def mask_phone(p: str) -> str:
     return f"…{digits[-4:]}" if len(digits) >= 4 else "—"
 
 
+def norm_phone(p: str) -> str:
+    return re.sub(r"\D", "", p or "")
+
+
 def first_last_initial(name: str) -> str:
     parts = (name or "").strip().split()
     if not parts:
@@ -198,8 +182,8 @@ def first_last_initial(name: str) -> str:
 
 
 def valid_utm(campaign: str) -> bool:
-    c = (campaign or "").strip()
-    return bool(c) and c not in ("-", "—")
+    c = norm(campaign)
+    return bool(c) and c not in ("-", "—", "nao encontrado")
 
 
 # --------------------------------------------------------------------------- #
@@ -229,62 +213,85 @@ def cell(row, i):
 
 
 # --------------------------------------------------------------------------- #
+# Compradores ("New Subscriptions") -> indice por telefone
+# --------------------------------------------------------------------------- #
+def build_sales_index(sales_rows):
+    """Le a aba de Compradores e devolve {telefone_normalizado: {"fat":R$, "n":compras}}.
+    Cruzamento é por TELEFONE (a Conversas não tem e-mail; o Lead LP antigo tem
+    e-mail mas está fora do escopo principal deste dashboard)."""
+    header = sales_rows[0] if sales_rows else []
+    idx = header_index(
+        header,
+        {"phone": ["telefone"], "faturamento": ["faturamento"], "receita": ["receita"]},
+        {"phone": 3, "faturamento": 6, "receita": 7},
+    )
+    out: dict[str, dict] = {}
+    for row in sales_rows[1:]:
+        if not any((c or "").strip() for c in row):
+            continue
+        phone = norm_phone(cell(row, idx["phone"]))
+        if not phone:
+            continue
+        fat = to_float(cell(row, idx["faturamento"]))
+        entry = out.setdefault(phone, {"fat": 0.0, "n": 0})
+        entry["fat"] += fat
+        entry["n"] += 1
+    return out
+
+
+# --------------------------------------------------------------------------- #
 # Processamento -> registros brutos
 # --------------------------------------------------------------------------- #
-def process(leads_rows, meta_rows):
-    lheader = leads_rows[0] if leads_rows else []
-    lidx = header_index(
-        lheader,
-        # Aba "Leads" (formulário/typeform): sem coluna de plataforma/orgânico
-        # dedicada — usamos utm_source como platform e is_organic fica sem
-        # alias (todos os leads atuais são via Meta Ads pago).
-        {"created": ["data ajustada", "created_time", "data", "created"],
-         "ad_name": ["utm_content", "ad_name"],
-         "adset_name": ["utm_medium", "adset_name"], "campaign": ["utm_campaign", "campaign_name"],
-         "is_organic": ["is_organic"],
-         "platform": ["utm_source", "platform"], "profession": ["profissao e atividade", "qual_sua_profissao", "profiss"],
-         "faturamento": ["media de faturamento mensal", "qual_seu_faturamento", "faturamento"],
-         "name": ["nome completo", "full_name", "nome"],
-         "email": ["e-mail", "email"], "phone": ["whatsapp", "phone_number", "phone", "telefone"]},
-        # <<PREENCHER: fallback posicional (índice de coluna) — confira contra o
-        # cabeçalho real da planilha do cliente novo; os aliases acima cobrem a
-        # maioria dos casos, este fallback só entra se nenhum alias bater>>
-        {"created": 31, "ad_name": 14, "adset_name": 12, "campaign": 13, "is_organic": None, "platform": 11,
-         "profession": 26, "faturamento": 29, "name": 7, "email": 8, "phone": 9},
+def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
+    sales_index = build_sales_index(sales_rows)
+
+    cheader = conversas_rows[0] if conversas_rows else []
+    cidx = header_index(
+        cheader,
+        {"created": ["data"], "phone": ["telefone"], "name": ["nome"],
+         "medico": ["e medico", "medico"], "campaign": ["campanha"],
+         "adset": ["conjunto"], "ad": ["anuncio"], "specialty": ["especialidades", "especialidade"]},
+        {"created": 0, "phone": 3, "name": 2, "medico": 4, "campaign": 8, "adset": 9, "ad": 10, "specialty": 11},
     )
 
     leads = []
-    for row in leads_rows[1:]:
-        if not any((c or "").strip() for c in row):
-            continue
+    # atribuicao de venda por telefone: 1a conversa daquele telefone (a mais
+    # antiga) leva o credito da venda/faturamento — evita contar a mesma
+    # compra em duplicidade quando o mesmo numero aparece em varias conversas.
+    rows_sorted = sorted(
+        [r for r in conversas_rows[1:] if any((c or "").strip() for c in r)],
+        key=lambda r: cell(r, cidx["created"]) or "",
+    )
+    attributed_phones: set[str] = set()
+    for row in rows_sorted:
         if is_test_lead(" ".join(str(c) for c in row)):
             continue
-        organic = norm(cell(row, lidx["is_organic"])) in ("true", "1", "sim", "verdadeiro")
-        platform = norm(cell(row, lidx["platform"]))
-        campaign = cell(row, lidx["campaign"])
-        if organic:
-            src = "org"
-        elif norm(campaign).startswith("goog") or platform in ("google", "youtube"):
-            src = "google"
-        elif platform in ("ig", "fb", "instagram", "facebook") or campaign:
-            src = "meta"
-        else:
-            src = "outros"
-        fat = cell(row, lidx["faturamento"])
+        campaign_raw = cell(row, cidx["campaign"])
+        campaign_valid = valid_utm(campaign_raw)
+        src = "meta" if campaign_valid else "org"
+        phone = norm_phone(cell(row, cidx["phone"]))
+        vendas, fat = 0, 0.0
+        if phone and phone in sales_index and phone not in attributed_phones:
+            attributed_phones.add(phone)
+            vendas = sales_index[phone]["n"]
+            fat = sales_index[phone]["fat"]
+        specialty = pretty_specialty(cell(row, cidx["specialty"]))
         leads.append({
-            "d": parse_date(cell(row, lidx["created"])),
+            "d": parse_date(cell(row, cidx["created"])),
             "src": src,
-            "plat": platform or "—",
-            "camp": campaign or "(sem campanha)",
-            "adset": cell(row, lidx["adset_name"]) or "(sem conjunto)",
-            "ad": cell(row, lidx["ad_name"]) or "(sem anúncio)",
-            "prof": (cell(row, lidx["profession"]) or "Sem resposta").replace("_", " ").capitalize(),
-            "bucket": pretty_bucket(fat),
-            "q": 1 if is_qualified(fat) else 0,
-            "utm": 1 if valid_utm(campaign) else 0,
-            "nm": first_last_initial(cell(row, lidx["name"])),
-            "em": mask_email(cell(row, lidx["email"])),
-            "ph": mask_phone(cell(row, lidx["phone"])),
+            "plat": "ig" if src == "meta" else "—",
+            "camp": campaign_raw if campaign_valid else "(sem campanha)",
+            "adset": cell(row, cidx["adset"]) if campaign_valid else "(sem conjunto)",
+            "ad": cell(row, cidx["ad"]) if campaign_valid else "(sem anúncio)",
+            "prof": specialty,
+            "bucket": specialty,
+            "q": 1 if is_medico(cell(row, cidx["medico"])) else 0,
+            "utm": 1 if campaign_valid else 0,
+            "nm": first_last_initial(cell(row, cidx["name"])),
+            "em": "—",
+            "ph": mask_phone(cell(row, cidx["phone"])),
+            "vendas": vendas,
+            "fat": round(fat, 2),
         })
 
     mheader = meta_rows[0] if meta_rows else []
@@ -299,7 +306,7 @@ def process(leads_rows, meta_rows):
          # o anúncio. Aliases cobrem variações do cabeçalho.
          "link": ["creative instagram permalink", "instagram permalink", "permalink",
                   "creative link", "link do anuncio", "link do criativo"]},
-        {"day": 0, "campaign": 1, "adset": 2, "ad": 3, "spent": 4, "impr": 5, "clicks": 6, "leads": 8, "pv": 7},
+        {"day": 0, "campaign": 2, "adset": 3, "ad": 4, "spent": 5, "impr": 6, "clicks": 7, "leads": None, "pv": 8},
     )
 
     meta = []
@@ -326,6 +333,13 @@ def process(leads_rows, meta_rows):
             "ml": to_float(cell(row, midx["leads"])),
         })
 
+    # Leads (LP) — fonte antiga, fora de uso. Só contamos o total para
+    # referência (não entra em leads[]/gráficos/tabelas/conversão).
+    leads_lp_total = sum(
+        1 for row in leads_lp_rows[1:]
+        if any((c or "").strip() for c in row) and not is_test_lead(" ".join(str(c) for c in row))
+    ) if leads_lp_rows else 0
+
     dates = sorted({d for d in ([l["d"] for l in leads if l["d"]] + [m["d"] for m in meta if m["d"]])})
     now_brt = datetime.now(BRT)
     return {
@@ -345,6 +359,8 @@ def process(leads_rows, meta_rows):
             "meta_cac": META_CAC,
             "volume_min_amostral": VOLUME_MIN_AMOSTRAL,
             "n_dias_corte": N_DIAS_CORTE,
+            # referência apenas (não usado na UI): total da fonte antiga "Leads LP".
+            "leads_lp_total": leads_lp_total,
         },
         "leads": leads,
         "meta": meta,
@@ -404,15 +420,20 @@ def render(data, template_path):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--leads-file")
+    ap.add_argument("--conversas-file", help="CSV local da aba Conversas (fonte principal de leads)")
+    ap.add_argument("--leads-file", help="CSV local da aba Leads (LP, legado — só contada)")
     ap.add_argument("--meta-file")
+    ap.add_argument("--sales-file", help="CSV local da aba New Subscriptions (Compradores)")
     ap.add_argument("--template", default="build/template.html")
     ap.add_argument("--out", default="dist/index.html")
     args = ap.parse_args()
 
-    leads_rows = load_rows(EXPORT_URL.format(sid=SPREADSHEET_ID, gid=GID_LEADS), args.leads_file)
+    conversas_rows = load_rows(EXPORT_URL.format(sid=SPREADSHEET_ID, gid=GID_CONVERSAS), args.conversas_file)
     meta_rows = load_rows(EXPORT_URL.format(sid=SPREADSHEET_ID, gid=GID_META), args.meta_file)
-    data = process(leads_rows, meta_rows)
+    sales_rows = load_rows(EXPORT_URL.format(sid=SPREADSHEET_ID, gid=GID_SALES), args.sales_file)
+    leads_lp_rows = load_rows(EXPORT_URL.format(sid=SPREADSHEET_ID, gid=GID_LEADS), args.leads_file)
+
+    data = process(conversas_rows, meta_rows, sales_rows, leads_lp_rows)
 
     # Insights de Tráfego (texto pré-escrito) — lidos do arquivo versionado ao
     # lado do template. Sem chamada de API no build.
@@ -425,11 +446,15 @@ def main():
 
     b = data["build"]
     q = sum(l["q"] for l in data["leads"])
+    vd = sum(l["vendas"] for l in data["leads"])
+    fat = sum(l["fat"] for l in data["leads"])
     print("== build ok ==", file=sys.stderr)
-    print(f"  periodo : {b['date_min']} -> {b['date_max']}", file=sys.stderr)
-    print(f"  leads   : {len(data['leads'])}  MQLs qualificados: {q}", file=sys.stderr)
-    print(f"  meta    : {len(data['meta'])} linhas", file=sys.stderr)
-    print(f"  out     : {args.out}", file=sys.stderr)
+    print(f"  periodo   : {b['date_min']} -> {b['date_max']}", file=sys.stderr)
+    print(f"  leads MSG : {len(data['leads'])}  MQLs (médicos): {q}", file=sys.stderr)
+    print(f"  vendas    : {vd}  faturamento: R$ {fat:,.2f}", file=sys.stderr)
+    print(f"  leads LP  : {b['leads_lp_total']} (fonte antiga, não usada na UI)", file=sys.stderr)
+    print(f"  meta      : {len(data['meta'])} linhas", file=sys.stderr)
+    print(f"  out       : {args.out}", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -50,13 +50,12 @@ function derive(a){
     convlp:pv?a.leads/pv:null,
     cpl:a.leads?g/a.leads:null, cpmql:a.mqls?g/a.mqls:null, tx:a.leads?a.mqls/a.leads:null};
 }
-/* --------- FUNIL PROFUNDO: Agendamento → Reunião Realizada → Venda (aguardando dados) ---------
-   Funil de venda 1:1 por reunião (ajuste o nome/etapa do funil ao cliente novo):
-     Impressões → Cliques → Leads → MQLs → Agendamentos → Reuniões Realizadas → Vendas → Faturamento.
-   Quando a fonte do comercial chegar, some `agendamentos`, `reunioes`,
-   `vendas` e `fat` por linha em buildAgg/daily/totals e TODA a UI acende sozinha
-   (funil, cards, colunas das tabelas, Top/Piores anúncios). Enquanto não houver,
-   cada métrica derivada retorna null -> "-". */
+/* --------- FUNIL: MQL → Venda (Vendas/Faturamento já ligados via build.py) ---------
+   Funil MedNexus: Impressões → Cliques → Leads → MQLs → Vendas → Faturamento.
+   `vendas`/`fat` já vêm somados por lead (build.py cruza Conversas × Compradores
+   por telefone) e se propagam em buildAgg/daily/totals, acendendo funil, cards,
+   colunas das tabelas e Top/Piores anúncios. Agendamentos/Reuniões Realizadas
+   não têm fonte neste cliente — ficam null -> "-" até existir lista do comercial. */
 function salesOf(a){
   const g=(a?a.sp:0)*taxf();
   const mqls=(a&&a.mqls)||0;
@@ -84,20 +83,21 @@ function salesOf(a){
 }
 function buildAgg(fL,fM,dim){
   const m={};
-  const get=k=>m[k]||(m[k]={sp:0,im:0,cl:0,pv:0,leads:0,mqls:0});
+  const get=k=>m[k]||(m[k]={sp:0,im:0,cl:0,pv:0,leads:0,mqls:0,vendas:0,fat:0});
   fM.forEach(r=>{const a=get(r[dim]); a.sp+=r.sp; a.im+=r.im; a.cl+=r.cl; a.pv+=r.pv;});
-  fL.forEach(r=>{const a=get(r[dim]); a.leads+=1; a.mqls+=r.q;});
+  fL.forEach(r=>{const a=get(r[dim]); a.leads+=1; a.mqls+=r.q; a.vendas+=r.vendas||0; a.fat+=r.fat||0;});
   return m;
 }
 function totals(fL,fM){
   let sp=0,im=0,cl=0,pv=0; fM.forEach(r=>{sp+=r.sp;im+=r.im;cl+=r.cl;pv+=r.pv;});
-  return {sp, im, cl, pv, leads:fL.length, mqls:fL.reduce((s,r)=>s+r.q,0)};
+  return {sp, im, cl, pv, leads:fL.length, mqls:fL.reduce((s,r)=>s+r.q,0),
+    vendas:fL.reduce((s,r)=>s+(r.vendas||0),0), fat:fL.reduce((s,r)=>s+(r.fat||0),0)};
 }
 /* daily aggregation for a source pair */
 function daily(fL,fM){
-  const days={}; const g=d=>days[d]||(days[d]={d, sp:0,im:0,cl:0,pv:0,leads:0,mqls:0});
+  const days={}; const g=d=>days[d]||(days[d]={d, sp:0,im:0,cl:0,pv:0,leads:0,mqls:0,vendas:0,fat:0});
   fM.forEach(r=>{if(!r.d)return; const a=g(r.d); a.sp+=r.sp; a.im+=r.im; a.cl+=r.cl; a.pv+=r.pv;});
-  fL.forEach(r=>{if(!r.d)return; const a=g(r.d); a.leads+=1; a.mqls+=r.q;});
+  fL.forEach(r=>{if(!r.d)return; const a=g(r.d); a.leads+=1; a.mqls+=r.q; a.vendas+=r.vendas||0; a.fat+=r.fat||0;});
   return Object.values(days).sort((a,b)=>a.d<b.d?-1:1);
 }
 
@@ -394,15 +394,16 @@ function renderGeralCore(ids){
   const nOrg=fL.filter(l=>l.src==='org').length;
   const semUtm=fL.filter(l=>!l.utm).length, comUtm=t.leads-semUtm;
   const NA='<span class="na-tag">sem dado</span>';
+  const s=salesOf(t);
   const steps=[
     ['Gasto Total', brl(g), [], false, 'hl-gasto'],
     ['Impressões', intf(t.im), [['CPM',brl(dv.cpm)]]],
     ['Cliques', intf(t.cl), [['CTR',pct(dv.ctr)],['CPC',brl(dv.cpc)]]],
     ['Page Views', intf(t.pv), [['CR',pct(dv.cr)],['CPV',brl(dv.cpv)]]],
     ['Leads', intf(t.leads), [['CPL',brl(dv.cpl)],['ConvLP',pct(dv.convlp)]]],
-    ['MQLs (<<PREENCHER: limiar de qualificação>>)', intf(t.mqls), [['Tx‑MQL',pct(dv.tx)],['CPMQL',brl(dv.cpmql)]], false, 'hl-mql'],
-    ['Vendas', NA, [['CAC',NA]], true],
-    ['Faturamento', NA, [['ROAS',NA],['Ticket',NA]], true],
+    ['MQLs (Médicos)', intf(t.mqls), [['Tx‑MQL',pct(dv.tx)],['CPMQL',brl(dv.cpmql)]], false, 'hl-mql'],
+    ['Vendas', s.vendas!=null?intf(s.vendas):NA, [['CAC',s.cac!=null?brl(s.cac):NA]], s.vendas==null],
+    ['Faturamento', s.fat!=null?brl(s.fat):NA, [['ROAS',s.roas!=null?numf(s.roas):NA],['Ticket',s.tm!=null?brl(s.tm):NA]], s.fat==null],
   ];
   document.getElementById(ids.funnel).innerHTML=funnelHTML(steps);
   // ---- Mar05: métricas secundárias mais úteis (não repetem o funil) ----
@@ -433,10 +434,9 @@ function renderGeralCore(ids){
   const srcName={meta:'Meta Ads',google:'Google Ads',org:'Orgânico',outros:'Outros'};
   const bySrc={}; fL.forEach(l=>{const k=srcName[l.src]||l.src; bySrc[k]=(bySrc[k]||0)+1;});
   hbar(ids.source, Object.entries(bySrc).map(([label,leads])=>({label,leads})), x=>x.leads, ()=>cvar('--chart-leads'));
-  // por faixa
+  // por especialidade (verde = leads médicos, cinza = não-médicos; "Sem resposta" sempre por último)
   const byB={}; fL.forEach(l=>{byB[l.bucket]=byB[l.bucket]||{label:l.bucket,leads:0,q:l.q}; byB[l.bucket].leads++;});
-  const order=['<<PREENCHER: ordem das faixas de faturamento/qualificação do cliente novo, ex. "Menos de R$X",...,"Mais de R$Y">>','Sem resposta'];
-  const bArr=Object.values(byB).sort((a,b)=>order.indexOf(a.label)-order.indexOf(b.label));
+  const bArr=Object.values(byB).sort((a,b)=>(a.label==='Sem resposta')-(b.label==='Sem resposta')||b.leads-a.leads);
   hbar(ids.bucket, bArr, x=>x.leads, x=>x.q?cvar('--bar-q'):cvar('--bar-noq'));
   // por plataforma
   const platName={ig:'Instagram',fb:'Facebook','—':'Orgânico/—'};
@@ -786,15 +786,16 @@ function renderMeta(){
   const F=metaScope(null), fL=F.fL, fM=F.fM;   // KPIs, funil, graficos e tabela diaria
   const t=totals(fL,fM), dv=derive(t), g=dv.gasto;
   const NA='<span class="na-tag">sem dado</span>';
+  const s=salesOf(t);
   const steps=[
     ['Gasto Total', brl(g), [], false, 'hl-gasto'],
     ['Impressões', intf(t.im), [['CPM',brl(dv.cpm)],['Frequência',NA]]],
     ['Cliques', intf(t.cl), [['CTR',pct(dv.ctr)],['CPC',brl(dv.cpc)]]],
     ['Page Views', intf(t.pv), [['CR',pct(dv.cr)],['CPV',brl(dv.cpv)]]],
     ['Leads', intf(t.leads), [['CPL',brl(dv.cpl)],['ConvLP',pct(dv.convlp)]]],
-    ['MQLs (<<PREENCHER: limiar de qualificação>>)', intf(t.mqls), [['Tx‑MQL',pct(dv.tx)],['CPMQL',brl(dv.cpmql)]], false, 'hl-mql'],
-    ['Vendas', NA, [['ConvMQL',NA],['CAC',NA]], true],
-    ['Faturamento', NA, [['ROAS',NA],['Ticket',NA]], true],
+    ['MQLs (Médicos)', intf(t.mqls), [['Tx‑MQL',pct(dv.tx)],['CPMQL',brl(dv.cpmql)]], false, 'hl-mql'],
+    ['Vendas', s.vendas!=null?intf(s.vendas):NA, [['ConvMQL',s.convmql!=null?pct(s.convmql):NA],['CAC',s.cac!=null?brl(s.cac):NA]], s.vendas==null],
+    ['Faturamento', s.fat!=null?brl(s.fat):NA, [['ROAS',s.roas!=null?numf(s.roas):NA],['Ticket',s.tm!=null?brl(s.tm):NA]], s.fat==null],
   ];
   document.getElementById('metaFunnel').innerHTML=funnelHTML(steps);
 

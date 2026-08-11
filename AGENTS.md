@@ -6,26 +6,26 @@
 
 ## ✅ CHECKLIST DE NOVO CLIENTE (resumo — detalhes em CLAUDE.md)
 
-1. `build/build.py`: `SPREADSHEET_ID`, `GID_LEADS`, `GID_META`, `CLIENT_NAME`,
-   `MAIN_PRODUCT`, `MAIN_PRODUCT_PREFIX`, aliases de coluna em `header_index()`,
-   `is_qualified()`/`MQL_FATURAMENTO_MIN` (critério de MQL), `TAX_FACTOR`.
-   `GID_SALES` só quando houver aba de vendas (ainda não usado em nenhum lugar).
-2. `build/app.js`: revisar os rótulos `'MQLs (<<PREENCHER...>>)'` (2 ocorrências)
-   e a lista `order` de faixas de faturamento/qualificação — o critério de
-   `build.py` não propaga sozinho para esses textos fixos da UI.
-3. `build/template.html`: substituir o nome do cliente no `<title>` e no logo
-   (2 marcadores `<<PREENCHER>>`).
+1. `build/build.py`: `SPREADSHEET_ID`, `GID_CONVERSAS` (fonte principal), `GID_LEADS`
+   (legado, só contado), `GID_META`, `GID_SALES`, `CLIENT_NAME`, `MAIN_PRODUCT`,
+   `MAIN_PRODUCT_PREFIX`, aliases de coluna em `header_index()`, `is_medico()`
+   (critério de MQL), `TAX_FACTOR`. `GID_SALES` é cruzada por telefone contra
+   a fonte principal em `build_sales_index()`.
+2. `build/app.js`: revisar os rótulos `'MQLs (...)'` (2 ocorrências) e o
+   agrupamento de "faixa"/especialidade — o critério de `build.py` não propaga
+   sozinho para esses textos fixos da UI.
+3. `build/template.html`: nome do cliente já preenchido no `<title>` e no logo.
 4. `README.md` / `CLAUDE.md` / `SETUP-CRON.md`: owner/repo do GitHub, URL do
    GitHub Pages, nome do cliente.
 5. GitHub Pages + Actions: confirmar que `build/` + `.github/workflows/deploy.yml`
    estão na `main` (ativa `workflow_dispatch`); rodar o workflow uma vez.
 6. cron-job.org: seguir `SETUP-CRON.md` — token fine-grained novo (Actions:
    read/write, só neste repo), nunca reaproveitar um token exposto em chat.
-7. Aba Relatório / Insights de Tráfego (`build/GUIA-RELATORIOS.md`): ajustar o
-   contexto do funil (marcadores `<<PREENCHER>>`); `build/relatorios.json` e
-   `build/relatorios_dados.json` começam vazios — preencher manual
-   (`gerar_relatorios.py`) ou recriar a Routine do Claude (`create_trigger`)
-   apontando para este repo (não vem pronta neste template).
+7. Aba Relatório / Insights de Tráfego (`build/GUIA-RELATORIOS.md`): contexto
+   do funil já preenchido; `build/relatorios.json` e
+   `build/relatorios_dados.json` seguem vazios — preencher manual
+   (`gerar_relatorios.py`) ou criar a Routine do Claude (`create_trigger`)
+   apontando para este repo (ainda não criada).
 8. Testar local com CSVs de amostra antes de publicar (3 páginas, tema
    claro/escuro, multi-seleção).
 9. **Automação de vendas / Worker de IA — ainda não implementados.** Este

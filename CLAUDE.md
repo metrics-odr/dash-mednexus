@@ -4,68 +4,19 @@
 > Ele carrega TODO o contexto necessário para continuar o trabalho sem depender
 > de mensagens anteriores. Mantenha-o atualizado.
 
-## ✅ CHECKLIST DE NOVO CLIENTE
+## ✅ Checklist de novo cliente — concluído (MedNexus)
 
-Marque cada item ao configurar este template para um cliente novo. Ordem sugerida:
-
-1. **Planilha de dados** (`build/build.py`):
-   - [ ] `SPREADSHEET_ID` — ID da planilha Google Sheets (só leitura, export CSV público).
-   - [ ] `GID_LEADS` / `GID_META` — gids das abas de Leads e de mídia paga.
-   - [ ] `CLIENT_NAME` / `MAIN_PRODUCT` / `MAIN_PRODUCT_PREFIX` — identificação do
-     cliente/oferta (hoje só usados em textos/relatórios).
-   - [ ] `GID_SALES` — só quando houver aba de vendas/compradores (ver "Lacunas de
-     dados" abaixo); enquanto não houver, deixe o marcador — não é lido em nenhum lugar.
-   - [ ] Conferir/ajustar os **aliases de coluna** em `header_index()` (nomes de
-     cabeçalho podem variar entre clientes) e o **fallback posicional**.
-   - [ ] `is_qualified()` / `MQL_FATURAMENTO_MIN` — critério de MQL do cliente
-     (ex.: faturamento ≥ X; pode ser outro critério, não precisa ser faixa de faturamento).
-   - [ ] `TAX_FACTOR` — imposto/taxa da conta de mídia (1.0 se não houver).
-2. **Regra de qualificação em `app.js`** (o critério em `build.py` **não** propaga
-   sozinho para textos fixos da UI): revise os rótulos `'MQLs (<<PREENCHER...>>)'`
-   (2 ocorrências, função `renderGeralCore`) e a lista `order` de faixas de
-   faturamento/qualificação (mesma função) — ajuste ao critério real do cliente novo.
-3. **Branding**: `build/template.html` — troque o nome do cliente no `<title>`
-   e no logo da sidebar (2 ocorrências, `<<PREENCHER: nome do cliente>>` /
-   `<<PREENCHER: nome do negócio/produto>>`).
-4. **Cores** (opcional): `build/identidade-visual.css` — a paleta atual é neutra/
-   genérica; troque só se o cliente tiver identidade visual própria.
-5. **Nome do projeto/URL** em `README.md`, `CLAUDE.md` (esta seção "O que é",
-   abaixo), `AGENTS.md` e `SETUP-CRON.md` — owner/repo do GitHub e URL do GitHub Pages.
-6. **GitHub Pages + Actions**:
-   - [ ] Confirmar que `build/` + `.github/workflows/deploy.yml` estão na branch `main`
-     (o `workflow_dispatch` só existe na branch padrão).
-   - [ ] Rodar o workflow uma vez (aba Actions → Run workflow) para o Pages
-     habilitar sozinho, ou deixar o cron-job.org disparar a 1ª execução.
-7. **cron-job.org** (dispara o build a cada 30 min): siga `SETUP-CRON.md` —
-   gerar token fine-grained novo (Actions: read/write, só neste repo), criar o
-   job com URL/headers/body do guia (preencha os marcadores com o repo real).
-   **Nunca** reutilize um token que já apareceu em texto puro em algum chat/
-   documento — revogue e gere outro.
-8. **Aba Relatório / Insights de Tráfego** (`build/GUIA-RELATORIOS.md` +
-   `build/GUIA-INTERPRETACAO-METRICAS.md`):
-   - [ ] Ajustar o contexto do funil (produto/oferta/etapas) no topo do
-     `GUIA-RELATORIOS.md` (marcadores `<<PREENCHER>>`).
-   - [ ] `build/relatorios.json` e `build/relatorios_dados.json` começam vazios
-     (`"periodos": {}`) — preenchidos automaticamente pelo "Briefing automático
-     do gestor" (ver seção abaixo) assim que houver dados reais, ou manualmente
-     com `build/gerar_relatorios.py`.
-   - [ ] Se for usar a Routine do Claude para redigir os Insights: recrie a
-     Routine (`create_trigger`, Claude Code Remote) apontando para o **novo
-     repo** — não é algo que o `git push` sozinho reativa (ela precisa ser
-     criada uma vez por cliente).
-9. **Teste local** antes de publicar: `python build/build.py --leads-file
-   leads.csv --meta-file meta.csv --out dist/index.html` com CSVs de
-   amostra; confira as 3 páginas, tema claro/escuro e a multi-seleção.
-10. **Automação de vendas / Worker de IA — ainda não implementados neste
-    template.** Este template cobre mídia paga × Leads até MQL (ver "Lacunas de
-    dados" abaixo) e a redação dos Insights via Routine do Claude (sem custo de
-    API). Não existe, hoje, nenhum Cloudflare Worker nem chamada paga à API da
-    Anthropic no pipeline — se o cliente precisar disso (ex.: aba de vendas,
-    geração de insights via API em vez de Routine agendada), é **desenvolvimento
-    novo**, não um passo de configuração deste checklist.
-
-> Depois de fechar o checklist, apague esta seção ou deixe como referência —
-> tanto faz, ela não afeta o build.
+Este template já foi configurado para a MedNexus (ver seções abaixo: fontes de
+dados, MQL, cruzamento de vendas, imposto, convenções de campanha). Detalhes
+de implementação ficam documentados inline em `build/build.py`/`build/app.js`.
+Pendências conhecidas, fora do escopo desta configuração inicial:
+- **Insights de Tráfego** (`build/GUIA-RELATORIOS.md`): contexto do funil ainda
+  não preenchido; `relatorios.json`/`relatorios_dados.json` seguem vazios. A
+  Routine do Claude que os gera precisa ser criada uma vez para este repo
+  (`create_trigger`, Claude Code Remote) quando o cliente quiser ativar essa
+  automação.
+- **Agendamentos/Reuniões Realizadas**: sem fonte de dados (lista do comercial)
+  — aparecem como "-" até existir essa planilha.
 
 ---
 
@@ -76,42 +27,57 @@ puro + Chart.js via CDN) publicado no **GitHub Pages**, que cruza a lista de
 **Leads** com o gerenciador de mídia paga e se atualiza sozinho a cada ~30 min
 (build 100% na nuvem via GitHub Actions, disparado externamente pelo cron-job.org).
 
-- **URL pública:** `<<PREENCHER: https://<org>.github.io/<repo>/>>`
+- **URL pública:** `https://metrics-odr.github.io/dash-mednexus/`
 - **Somente leitura** das planilhas. Nunca escrever de volta.
 
 ## Fontes de dados (Google Sheets)
 
-Spreadsheet ID: `<<PREENCHER: ID da planilha>>` (público — leitura via export CSV).
+Spreadsheet ID: `1npTWHf_taXBhGlOT-WFtlt7CvX44sVbKf8WGs8nQhgE` ("MEDNEXUS | Planilha Central").
 
 | Aba | gid | Colunas usadas |
 |-----|-----|----------------|
-| **Leads** (formulário/typeform) | `<<PREENCHER: gid>>` | `<<PREENCHER: nomes reais das colunas da planilha do cliente e o que cada uma mapeia — created/ad_name/adset_name/campaign/platform/profession/faturamento/name/email/phone>>` |
-| **Meta Ads** | `<<PREENCHER: gid>>` | `Day` · `Campaign Name` · `Ad Set Name` · `Ad Name` · `Amount Spent` · `Impressions` · `Link Clicks` · `Leads` · `Creative Instagram Permalink`(link do criativo, opcional) |
+| **Conversas** ("Leads MSG", fonte principal — webhook Umbler/WhatsApp) | `718101807` | `Data` · `Mensagem` · `Nome` · `Telefone` · `É médico?` · `Compra Detectada`/`Faturamento Detectado`/`Receita Detectada` (não usadas — build.py recalcula) · `Campanha` · `Conjunto` · `Anúncio` · `Especialidades` |
+| **Leads** ("Leads LP", legado — popup/form antigo, só contada) | `179764332` | `Data` · `Nome` · `Email` · `Telefone` · `Médico?` · `Especialidade` · `utm_source`/`utm_campaign`/`utm_medium`/`utm_term`/`utm_content` · `fbc`/`fbp`/`user_agent`/`client_ip`/`external_id` · `MQL` · `Compra Detectada`/`Faturamento Detectado`/`Receita Detectada`/`Data Compra` |
+| **Meta Ads** | `316997495` | `Day` · `Ad ID` · `Campaign Name` · `Ad Set Name` · `Ad Name` · `Amount Spent` · `Impressions` · `Link Clicks` · `Landing Page Views` · `Content Views` · `Adds to Cart` · `Subscriptions` · `Subscribe Conversion Value` |
+| **New Subscriptions** (Compradores) | `510373601` | `Data` · `Nome` · `Email` · `Telefone` · `Produto` · `Oferta` · `Faturamento` · `Receita` · `Método de Pagamento` · `utm_cap-source` · `Campanha` · `Conjunto` · `Anúncio` · `UF` · `Cidade` · `Zip Code` · `Endereço` |
 
 URL de export CSV: `https://docs.google.com/spreadsheets/d/<ID>/export?format=csv&gid=<GID>`
 
 ### Regra de Lead Qualificado (MQL)
-`<<PREENCHER: critério de qualificação do cliente novo — ex. faturamento médio
-mensal ≥ R$ X, coluna "..." da aba Leads, faixas no formato "Entre R$X e R$Y" /
-"Menos de R$X" / "Mais de R$X">>`. Lógica em `build.py` → `is_qualified`
-(limiar `MQL_FATURAMENTO_MIN`); rótulos/ordem de faixas espelhados em `app.js`
-(`order` em `renderGeralCore`).
+Coluna **"É médico?"** (Conversas) / **"Médico?"** (Leads) == "Sim". Lógica em
+`build.py` → `is_medico`. O gráfico "Leads por especialidade" (`app.js`,
+`renderGeralCore`) colore verde/cinza pelo mesmo critério, usando a coluna
+`Especialidades`/`Especialidade` como dimensão (sem faixa de faturamento —
+este cliente não usa esse critério).
+
+### Vendas & Faturamento (cruzamento com Compradores)
+`build.py` → `build_sales_index()` lê a aba **New Subscriptions** e indexa por
+**telefone** (normalizado, só dígitos) → `{fat, n}`. Em `process()`, cada linha
+da **Conversas** é cruzada por telefone; a **primeira conversa** (mais antiga)
+daquele telefone leva o crédito da venda/faturamento — evita contar a mesma
+compra em duplicidade quando o mesmo número aparece em várias conversas. Os
+campos `vendas`/`fat` resultantes se propagam em `buildAgg`/`daily`/`totals`
+(`app.js`), acendendo sozinhos o funil (Vendas/Faturamento/CAC/ROAS/Ticket) e
+as tabelas Top/Piores anúncios. **Não** usa as colunas `Compra Detectada` /
+`Faturamento Detectado` já calculadas na planilha (decisão do cliente: cruzar
+do zero, mais robusto a erro de fórmula na planilha).
 
 ### Imposto da mídia paga
-`TAX_FACTOR` em `build.py` — `<<PREENCHER: imposto/taxa real da conta de mídia
-do cliente, ou deixe 1.0 se não houver>>`. O toggle "Imposto Meta" fica
+`TAX_FACTOR = 1.13806` em `build.py` (13,806%). O toggle "Imposto Meta" fica
 **ativo por padrão** (`STATE.tax=true` em `app.js`) e aplica o fator em todo
 o gasto/derivados (CPL, CPMQL, CAC etc.); desativar o toggle volta ao gasto
 sem imposto.
 
 ### Convenções de campanha (do cliente)
-`<<PREENCHER: sigla/nome do funil e padrão de nomenclatura das campanhas do
-cliente novo, ex. "SIGLA | <etapa> | <público> | <objetivo> | <estratégia> |
-<data> | <teste>">>`. `utm_content` = nome do anúncio (deve bater com `Ad Name`
-do Meta Ads). `utm_campaign` = `Campaign Name` do Meta Ads. `utm_medium` é
-usado como conjunto (adset) — confira se a nomenclatura do cliente bate com
-`Ad Set Name` do Meta; se não bater 100%, o cruzamento por Conjunto pode ficar
-levemente impreciso até o cliente padronizar.
+Todas as campanhas usam o prefixo `MEDNEXUS` (`MAIN_PRODUCT_PREFIX`), sem
+filtrar por sub-funil — o cliente pediu para manter TODAS as campanhas no
+dashboard, mesmo as de sigla diferente. Duas siglas de etapa coexistem nos
+nomes (`MEDNEXUS | <etapa> | <público> | <objetivo> | <estratégia> | <data> |
+<teste>`): `E6-VEN` é o funil **ativo** hoje (WhatsApp direto); `E2-CAP` é
+legado, fora de uso. Além dessas, há campanhas antigas fora do padrão
+estruturado. A Conversas já traz `Campanha`/`Conjunto`/`Anúncio` prontos
+(nomes idênticos ao `Campaign Name`/`Ad Set Name`/`Ad Name` do Meta Ads) —
+`build.py` só copia esses valores, sem precisar de UTM nessa aba.
 
 ## Arquitetura / arquivos
 
@@ -126,7 +92,7 @@ build/relatorios_dados.json      # números brutos por período (insumo p/ a Rou
 build/relatorio_lib.py           # datas/agregação compartilhadas (gerar_relatorios.py + coletar_dados_relatorio.py)
 build/coletar_dados_relatorio.py # gera relatorios_dados.json (só números, sem texto) — roda no briefing.yml, 1x/dia
 build/gerar_relatorios.py        # gera relatorios.json determinístico (sem IA) — fallback MANUAL, não roda mais sozinho
-build/GUIA-RELATORIOS.md            # formato/estrutura dos Insights da aba Relatório (os 7 blocos) — contexto do funil com marcadores <<PREENCHER>>
+build/GUIA-RELATORIOS.md            # formato/estrutura dos Insights da aba Relatório (os 7 blocos) — contexto do funil preenchido
 build/GUIA-INTERPRETACAO-METRICAS.md # regras de diagnóstico por métrica (High Ticket) — leitura obrigatória p/ redigir
 .github/workflows/deploy.yml    # roda build.py e publica no Pages (workflow_dispatch + schedule + push)
 .github/workflows/briefing.yml  # roda coletar_dados_relatorio.py e commita relatorios_dados.json na main (cron 1x/dia, 23h50 BRT)
@@ -286,4 +252,4 @@ MQLs (verde)** — cores em `--heat-gasto/leads/mqls`. As demais colunas ficam s
    gerar um novo** (fine‑grained, só Actions: read/write neste repo).
 
 ## Branch / git
-- `<<PREENCHER: branch de trabalho, se houver>>`; manter sincronizada com `main`.
+- Desenvolvimento em `claude/mednexus-paid-traffic-dashboard-rszgef`; manter sincronizada com `main`.

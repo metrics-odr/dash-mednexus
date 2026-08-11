@@ -1,12 +1,13 @@
-# Dashboard de Captura de Leads · <<PREENCHER: nome do cliente>>
+# Dashboard de Captura de Leads · MedNexus
 
-Dashboard **100% na nuvem** que cruza a lista de **Leads** (<<PREENCHER: nome/
-sigla do funil e da oferta do cliente>>) com o investimento de mídia paga
-(**Meta Ads**), calcula os **Leads Qualificados** e é publicada no **GitHub
-Pages**. Reconstrói sozinha a cada ~30 min, disparada pelo **cron-job.org** —
-sem depender de nenhum PC ligado.
+Dashboard **100% na nuvem** do Funil de High Ticket da **MedNexus** que cruza a
+aba **Conversas** (leads via WhatsApp, webhook Umbler) com o investimento de
+mídia paga (**Meta Ads**) e com a lista de **Compradores**, calcula os
+**Leads Qualificados** (médicos) e as **Vendas/Faturamento** atribuídos por
+anúncio, e é publicada no **GitHub Pages**. Reconstrói sozinha a cada ~30 min,
+disparada pelo **cron-job.org** — sem depender de nenhum PC ligado.
 
-**URL pública:** `<<PREENCHER: https://<org>.github.io/<repo>/>>`
+**URL pública:** `https://metrics-odr.github.io/dash-mednexus/`
 
 ---
 
@@ -22,18 +23,19 @@ sem depender de nenhum PC ligado.
 
 ## Critério de Lead Qualificado (MQL)
 
-`<<PREENCHER: critério de qualificação do cliente novo>>`. Lógica em `build.py` →
-`is_qualified`.
+Coluna **"É médico?"** (aba Conversas) == "Sim". Lógica em `build.py` → `is_medico`.
 
 ## Fontes de dados (somente leitura)
 
-Planilha central `<<PREENCHER: nome da planilha>>`
-(`<<PREENCHER: ID da planilha>>`):
+Planilha central `MEDNEXUS | Planilha Central`
+(`1npTWHf_taXBhGlOT-WFtlt7CvX44sVbKf8WGs8nQhgE`):
 
 | Aba | gid | Uso |
 |-----|-----|-----|
-| Leads | `<<PREENCHER: gid>>` | leads reais + coluna de qualificação |
-| Meta Ads | `<<PREENCHER: gid>>` | gasto, impressões, cliques |
+| Conversas ("Leads MSG") | `718101807` | fonte **principal** de leads (webhook Umbler/WhatsApp) — usada em todos os gráficos/cards/tabelas |
+| Leads ("Leads LP", legado) | `179764332` | popup/form antigo — só contada (total), não entra em cálculo algum |
+| Meta Ads | `316997495` | gasto, impressões, cliques |
+| New Subscriptions (Compradores) | `510373601` | cruzada por telefone com a Conversas → Vendas/Faturamento por anúncio |
 
 O build lê essas abas via **export CSV público** (`.../export?format=csv&gid=...`).
 **Nada é escrito de volta** nas planilhas.
@@ -64,7 +66,8 @@ aberta — sempre pegando a versão mais nova.
 ```bash
 python build/build.py --out dist/index.html            # busca os CSVs ao vivo
 # ou, com arquivos locais para teste:
-python build/build.py --leads-file leads.csv --meta-file meta.csv --out dist/index.html
+python build/build.py --conversas-file conversas.csv --meta-file meta.csv \
+  --sales-file compradores.csv --leads-file leads.csv --out dist/index.html
 ```
 
 ---

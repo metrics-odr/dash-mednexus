@@ -71,21 +71,21 @@ os Insights.
 
 ## Contexto do funil
 
-<<PREENCHER: nome/sigla do funil do cliente novo (ex. "Funil de <nome da
-oferta> (SIGLA)")>> — <<PREENCHER: nome do cliente, nome do negócio/oferta>>.
-<<PREENCHER: descreva o tipo de funil (venda 1:1 por reunião / evento /
-lançamento / carrinho direto etc.) e o caminho do lead>>: o anúncio no Meta
-Ads leva a <<PREENCHER: página de captura/formulário/LP>> que
-<<PREENCHER: se houver etapa de qualificação, descreva o critério aqui>> e,
-se qualificado, o lead <<PREENCHER: próxima etapa — agenda reunião, compra
-direto, entra em lista de espera etc.>>.
+**Funil de High Ticket (MEDNEXUS)** — MedNexus, "a vitrine digital dos
+médicos de sucesso". Funil de captura via WhatsApp com venda 1:1 (comercial
+fecha por conversa/reunião, não carrinho direto): o anúncio no Meta Ads leva
+a uma página de captura com botão do WhatsApp; ao clicar, o lead chama no
+WhatsApp Business da MedNexus e a Umbler dispara um webhook na 1ª mensagem,
+que cai na aba **Conversas** (fonte principal de leads deste dashboard,
+"Leads MSG"). O critério de qualificação (MQL) é o lead **ser médico** — se
+qualificado, segue a conversa com o comercial até a venda (registrada na aba
+de Compradores e cruzada de volta ao anúncio por telefone).
 
 ```
-Impressões → Cliques/abertura do formulário → Leads → MQLs (<<PREENCHER: sigla de qualificação>>) → <<PREENCHER: etapas seguintes do funil deste cliente, ex. Agendamentos → Reuniões Realizadas → Vendas → Faturamento>>
+Impressões → Cliques/abertura do WhatsApp → Leads → MQLs (médicos) → Vendas → Faturamento
 ```
 
-- **MQL / <<PREENCHER: sigla de qualificação>>** = <<PREENCHER: critério de
-  qualificação do cliente novo>> (ver `build.py` → `is_qualified`).
+- **MQL** = coluna **"É médico?"** == "Sim" (ver `build.py` → `is_medico`).
 - **Agendamento** = o lead qualificado marcou horário de reunião com o comercial.
 - **Reunião Realizada** = a reunião de fato aconteceu (o lead compareceu). O
   inverso disso é o **No‑Show** (agendou e não compareceu) — a métrica de alerta
