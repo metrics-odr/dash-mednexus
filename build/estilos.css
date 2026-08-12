@@ -280,6 +280,27 @@
   table.dt.rel-adt tfoot .stk-l1, table.dt.rel-adt tfoot .stk-r{position:sticky; z-index:1; background:var(--tfoot)}
   table.dt.rel-adt .stk-l1{left:0; border-right:1px solid var(--border)}
   table.dt.rel-adt .stk-r{right:0; border-left:1px solid var(--border)}
+
+  /* tabelas hierárquicas (Campanha/Conjunto/Anúncio): por padrão cabe tudo sem
+     rolar. Só quando a soma das colunas estoura a largura do card é que
+     aparece scroll — nesse caso, a dimensão + Gasto ficam travadas à esquerda
+     e, do MQLs em diante (intervalo fechado), travadas à direita; só a faixa
+     do meio (CPM…Tx‑MQL) rola. Motor: 3 <table> independentes lado a lado
+     (renderSplitTable em app.js) — cabendo tudo, o flex nem mostra barra de
+     rolagem e fica idêntico a uma tabela única; só a seção do meio tem
+     overflow-x. */
+  .dt-split{display:flex; align-items:flex-start; min-width:100%}
+  .dt-split table.dt{min-width:0; width:auto}
+  .dt-split-fixed{flex:0 0 auto}
+  /* a faixa do meio encolhe até um mínimo utilizável (nunca some) e só then
+     ganha scroll própria; só nesse caso extremo (bandas fixas sozinhas já não
+     cabem) é que o .tbl-wrap (ancestral) rola o conjunto inteiro. */
+  .dt-split-scroll{flex:1 1 160px; min-width:100px; overflow-x:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent}
+  .dt-split-scroll::-webkit-scrollbar{height:7px}
+  .dt-split-scroll::-webkit-scrollbar-track{background:transparent}
+  .dt-split-scroll::-webkit-scrollbar-thumb{background:var(--border); border-radius:999px}
+  .dt-split-l table{border-right:1px solid var(--border)}
+  .dt-split-r table{border-left:1px solid var(--border)}
   .rel-adlink{font-size:12px; font-weight:600; color:var(--accent-blue); text-decoration:none; white-space:nowrap}
   .rel-adlink:hover{text-decoration:underline}
   .rel-adlink.off{color:var(--muted); font-weight:400}
