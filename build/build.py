@@ -301,6 +301,7 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
          "ad": ["ad name"], "spent": ["amount spent", "valor gasto", "gasto"], "impr": ["impressions", "impress"],
          "clicks": ["link clicks", "clicks", "cliques"], "leads": ["leads"],
          "pv": ["landing page views", "page views", "pageviews"],
+         "chk": ["initiate checkout", "checkouts iniciados", "checkouts"],
          # Link do criativo (ex. Instagram) — coluna opcional adicionada pelo cliente
          # na aba de mídia. Usada na aba Relatório (Top/Piores anúncios) para linkar
          # o anúncio. Aliases cobrem variações do cabeçalho.
@@ -330,6 +331,7 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
             "im": to_float(cell(row, midx["impr"])),
             "cl": to_float(cell(row, midx["clicks"])),
             "pv": to_float(cell(row, midx["pv"])),
+            "ck": to_float(cell(row, midx["chk"])),
             "ml": to_float(cell(row, midx["leads"])),
         })
 

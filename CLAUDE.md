@@ -217,7 +217,10 @@ Três **páginas separadas** (sidebar, sem rolar entre elas):
 **Ordem das colunas nas tabelas de heatmap/hierarquia:**
 `Data · Dia · Gasto · CPM · CTR · ConvForm(=Leads/Cliques) · Leads · CPL · Tx‑MQL · MQLs · CPMQL ·
 ConvMQL · Vendas · CAC · Fat. · TM · ROAS` (nas hierárquicas a 1ª coluna é a dimensão em vez de
-Data/Dia).
+Data/Dia). Nas tabelas diárias (heatmap, `DAILY_COLS`) entram também **Checkouts** e **VisCHK**
+(`Checkouts/Page Views`) logo após ConvForm e antes de Leads — vêm da coluna "Initiate Checkout"
+(aliases: `initiate checkout`/`checkouts iniciados`/`checkouts`) da aba **Meta Ads**; sem essa
+coluna na planilha, ambas ficam "-". Não entram nas tabelas hierárquicas Campanha/Conjunto/Anúncio.
 
 **Regras obrigatórias das tabelas** (ver `GUIA-REPLICACAO.md`): cabeçalho sticky;
 ordenação tri‑state (asc→desc→reset); colunas redimensionáveis (persist localStorage);
