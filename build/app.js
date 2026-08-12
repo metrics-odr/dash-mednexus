@@ -907,7 +907,10 @@ function renderMeta(){
     return {k:ad, cells:{dim:ad,mqls:a.mqls,cpmql:d.cpmql,vendas:s.vendas,cac:s.cac,fat:s.fat,roas:s.roas},
       _ord:(s.cac!=null?s.cac:(d.cpmql!=null?d.cpmql:Infinity))};})
     .sort((a,b)=>a._ord-b._ord).slice(0,10);
-  renderTable({id:'mTopCac', center:true, fit:true,
+  // sem fit: 7 colunas não cabem legíveis dividindo 1/3 da página (.trio) —
+  // largura automática por coluna + scroll horizontal dentro do próprio card
+  // (mesmo padrão das tabelas hierárquicas), em vez de espremer tudo.
+  renderTable({id:'mTopCac', center:true,
     cols:[{key:'dim',label:'Anúncios',type:'dim',big:true},{key:'mqls',label:'MQLs',type:'int'},
       {key:'cpmql',label:'CPMQL',type:'brl'},{key:'vendas',label:'Vendas',type:'int'},
       {key:'cac',label:'CAC',type:'brl'},{key:'fat',label:'Fat.',type:'brl'},{key:'roas',label:'ROAS',type:'num'}],
