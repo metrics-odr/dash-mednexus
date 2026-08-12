@@ -138,6 +138,14 @@ function colWidth(cfg,c){ const saved=(STATE.colw[cfg.id]||{})[c.key];
   if(c.type==='brl') return 110;   // "R$ 1.487,42" não cabia nos 92px padrão (cortava com "…")
   return 92; }
 function renderTable(cfg){
+  // tabelas com colunas travadas EM BANDA (band:'l'/'r' — não confundir com o
+  // stk:'l1'/'l2'/'r' do rel-adt, esquema à parte) usam um motor separado —
+  // ver renderSplitTable: position:sticky por célula não dá pra "reservar
+  // espaço" numa única <table>, e colunas travadas em banda (mais de 1 de
+  // cada lado) acabam desenhando por cima do conteúdo do meio quando a
+  // tabela estoura a largura do card. 3 tabelas lado a lado (esquerda fixa /
+  // meio com scroll / direita fixa) evita esse problema por construção.
+  if(cfg.cols.some(c=>c.band)) return renderSplitTable(cfg);
   const table=document.getElementById(cfg.id); if(!table) return;
   table.classList.toggle('dt-center', !!cfg.center);   // Mar01: dados centralizados
   const fit=!!cfg.fit;                                  // fit: cabe 100% da largura, sem scroll
@@ -225,9 +233,107 @@ function renderTable(cfg){
   // pra chips/cores customizados nunca sumirem ao clicar num cabeçalho)
   if(cfg.afterRender) cfg.afterRender(table, rows);
 }
+/* ---------------- tabela "split" (colunas travadas em banda) ----------------
+   3 <table> independentes lado a lado dentro de um flex (esquerda fixa · meio
+   com scroll próprio · direita fixa), em vez de position:sticky por célula.
+   position:sticky não reserva espaço: quando o "puxão" da coluna travada é
+   grande (tabela bem mais larga que o card), ela desenha por cima do conteúdo
+   do meio em vez de ficar ao lado. 3 tabelas separadas não tem esse problema
+   — cada uma só ocupa o espaço que ela mesma define. Cabendo tudo sem
+   scroll, o flex simplesmente não mostra nenhuma barra e fica idêntico a uma
+   tabela única. */
+function renderSplitTable(cfg){
+  const root=document.getElementById(cfg.id); if(!root) return;
+  const sortState=STATE.sort[cfg.id];
+  let rows=cfg.rows.slice();
+  if(sortState){ const {key,dir}=sortState; const c=cfg.cols.find(x=>x.key===key);
+    rows.sort((a,b)=>{ let va=a.cells[key], vb=b.cells[key];
+      if(c && c.type==='dim'){ va=norm(va); vb=norm(vb); return dir==='asc'?(va<vb?-1:va>vb?1:0):(va>vb?-1:va<vb?1:0); }
+      va=(va==null||!isFinite(va))?-Infinity:va; vb=(vb==null||!isFinite(vb))?-Infinity:vb;
+      return dir==='asc'?va-vb:vb-va; }); }
+  const ext={};
+  cfg.cols.forEach(c=>{ if(c.heat){ const vs=rows.map(r=>r.cells[c.key]).filter(v=>v!=null&&isFinite(v)); ext[c.key]=[Math.min(...vs),Math.max(...vs)]; }});
+  const fmt=(t,v)=> t==='brl'?brl(v):t==='pct'?pct(v):t==='int'?intf(v):t==='num'?numf(v):t==='date'?brdate(v):t==='html'?(v==null?'-':String(v)):dimf(v);
+  const esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
+  const leftCols=cfg.cols.filter(c=>c.band==='l'), rightCols=cfg.cols.filter(c=>c.band==='r'), midCols=cfg.cols.filter(c=>!c.band);
+  function section(cols){
+    const widths=cols.map(c=>colWidth(cfg,c)); const totalW=widths.reduce((a,b)=>a+b,0);
+    const colgroup='<colgroup>'+cols.map((c,i)=>`<col style="width:${widths[i]}px">`).join('')+'</colgroup>';
+    const thead='<thead><tr>'+cols.map(c=>{
+      const sc = sortState&&sortState.key===c.key ? (sortState.dir==='asc'?'sorted-asc':'sorted-desc') : '';
+      return `<th class="${c.type==='dim'?'dim ':''}${sc}" data-k="${c.key}" title="${esc(c.label)}">${c.label}<span class="rsz"></span></th>`;
+    }).join('')+'</tr></thead>';
+    const tbody='<tbody>'+rows.map(r=>{
+      const sel = cfg.selectable && cfg.selSet && cfg.selSet.has(r.k);
+      const tds=cols.map(c=>{
+        const v=r.cells[c.key]; let bg='';
+        if(c.heat && ext[c.key]) bg=`background:${heat(v,ext[c.key][0],ext[c.key][1],c.heat)}`;
+        const cls=(c.type==='dim'?'dim':'')+(c.cls&&c.cls(r)?' '+c.cls(r):'');
+        const ttl=c.type==='html'?'':` title="${esc(fmtStd(c.type,v))}"`;
+        return `<td class="${cls}" style="${bg}"${ttl}>${fmt(c.type,v)}</td>`;
+      }).join('');
+      return `<tr class="${sel?'sel':''}" data-k="${encodeURIComponent(r.k)}">${tds}</tr>`;
+    }).join('')+'</tbody>';
+    let tfoot='';
+    if(cfg.total){ tfoot='<tfoot><tr>'+cols.map(c=>{
+      const v=cfg.total[c.key]; const isFirst=cfg.cols.indexOf(c)===0&&v==null;
+      return `<td class="${c.type==='dim'?'dim':''}" title="${isFirst?'Total Geral':esc(fmtStd(c.type,v))}">${isFirst?'Total Geral':fmt(c.type,v)}</td>`;
+    }).join('')+'</tr></tfoot>'; }
+    return `<table class="dt${cfg.center?' dt-center':''}" style="width:${totalW}px">${colgroup}${thead}${tbody}${tfoot}</table>`;
+  }
+  // troca a própria tag por <div> (um <table> não pode ter <div> como filho —
+  // o parser HTML descarta; outerHTML recria o nó com a tag certa). Funciona
+  // tanto na 1ª renderização (raiz ainda é a <table> do template) quanto nas
+  // seguintes (raiz já é a <div class="dt-split"> da renderização anterior).
+  root.outerHTML =
+    `<div id="${cfg.id}" class="dt-split">`+
+      `<div class="dt-split-fixed dt-split-l">${section(leftCols)}</div>`+
+      `<div class="dt-split-scroll">${section(midCols)}</div>`+
+      `<div class="dt-split-fixed dt-split-r">${section(rightCols)}</div>`+
+    `</div>`;
+  const fresh=document.getElementById(cfg.id);
+  // sort: clicar em QUALQUER cabeçalho (das 3 tabelas) reordena as 3 juntas
+  fresh.querySelectorAll('thead th').forEach(th=>{
+    th.addEventListener('click',e=>{ if(e.target.classList.contains('rsz'))return;
+      const k=th.dataset.k, cur=STATE.sort[cfg.id];
+      if(!cur||cur.key!==k) STATE.sort[cfg.id]={key:k,dir:'asc'};
+      else if(cur.dir==='asc') STATE.sort[cfg.id]={key:k,dir:'desc'};
+      else delete STATE.sort[cfg.id];
+      renderSplitTable(cfg);
+    });
+  });
+  // resize: cada coluna só afeta a largura da SUA seção (as 3 tabelas são
+  // independentes, então redimensionar ao vivo não desalinha nada)
+  fresh.querySelectorAll('thead th .rsz').forEach(g=>{
+    g.addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation();
+      const th=g.parentElement, k=th.dataset.k, x0=e.clientX;
+      const sectionTable=th.closest('table'), ths=[...th.parentElement.children];
+      const ci=ths.indexOf(th), col=sectionTable.querySelector('colgroup').children[ci];
+      const w0=col.offsetWidth, tw0=sectionTable.offsetWidth;
+      document.body.style.userSelect='none';
+      const mv=ev=>{ const nw=Math.max(60,w0+(ev.clientX-x0)); col.style.width=nw+'px'; sectionTable.style.width=(tw0-w0+nw)+'px';
+        STATE.colw[cfg.id]=STATE.colw[cfg.id]||{}; STATE.colw[cfg.id][k]=nw; };
+      const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); document.body.style.userSelect=''; localStorage.setItem('dm_colw',JSON.stringify(STATE.colw)); };
+      document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
+    });
+    g.addEventListener('dblclick',e=>{ e.preventDefault(); e.stopPropagation();
+      const th=g.parentElement, k=th.dataset.k, c=cfg.cols.find(x=>x.key===k);
+      const nw=autoColWidth(cfg,c);
+      STATE.colw[cfg.id]=STATE.colw[cfg.id]||{}; STATE.colw[cfg.id][k]=nw;
+      localStorage.setItem('dm_colw',JSON.stringify(STATE.colw));
+      renderSplitTable(cfg);
+    });
+  });
+  if(cfg.selectable && cfg.onSelect){
+    fresh.querySelectorAll('tbody tr').forEach(tr=>{
+      tr.addEventListener('click',e=>{ cfg.onSelect(decodeURIComponent(tr.dataset.k), e); });
+    });
+  }
+  if(cfg.afterRender) cfg.afterRender(fresh, rows);
+}
 /* Heatmap por coluna: cor FIXA por métrica (definida em identidade-visual.css),
    só a OPACIDADE varia com o valor (maior valor = mais vibrante). */
-const HEAT_HUE={gasto:'--heat-gasto', leads:'--heat-leads', mqls:'--heat-mqls'};
+const HEAT_HUE={gasto:'--heat-gasto', leads:'--heat-leads', mqls:'--heat-mqls', roas:'--heat-roas'};
 function heat(v,lo,hi,kind){
   if(v==null||!isFinite(v)||hi===lo||!HEAT_HUE[kind]) return 'transparent';
   const t=Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
@@ -542,9 +648,7 @@ const AD_COLS=[
   {k:'camp',label:'Campanha',dim:true},{k:'adset',label:'Conjunto',dim:true},
   {k:'gasto',label:'Gasto'},{k:'im',label:'Impr.'},{k:'cpm',label:'CPM'},{k:'ctr',label:'CTR'},
   {k:'leads',label:'Leads'},{k:'cpl',label:'CPL'},{k:'mqls',label:'MQLs'},{k:'tx',label:'Tx‑MQL'},{k:'cpmql',label:'CPMQL'},
-  {k:'agendamentos',label:'Agendamentos'},{k:'txag',label:'Tx‑Agend.'},{k:'cpag',label:'CPAG'},
-  {k:'reunioes',label:'Reuniões'},{k:'noshow',label:'No‑Show'},{k:'cprr',label:'CPRR'},
-  {k:'vendas',label:'Vendas'},{k:'cac',label:'CAC'},{k:'fat',label:'Faturamento'},{k:'roas',label:'ROAS'},
+  {k:'convmql',label:'ConvMQL'},{k:'vendas',label:'Vendas'},{k:'cac',label:'CAC'},{k:'fat',label:'Faturamento'},{k:'roas',label:'ROAS'},
   {k:'link',label:'Link',dim:true,stk:'r'},
 ];
 function adRowCells(ad,a,struct){
@@ -552,9 +656,7 @@ function adRowCells(ad,a,struct){
   return {ad, camp:struct.camp, adset:struct.adset,
     gasto:d.gasto, im:a.im, cpm:d.cpm, ctr:d.ctr,
     leads:a.leads, cpl:d.cpl, mqls:a.mqls, tx:d.tx, cpmql:d.cpmql,
-    agendamentos:s.agendamentos, txag:s.txag, cpag:s.cpag,
-    reunioes:s.reunioes, noshow:s.txnoshow, cprr:s.cprr,
-    vendas:s.vendas, cac:s.cac, fat:s.fat, roas:s.roas,
+    convmql:s.convmql, vendas:s.vendas, cac:s.cac, fat:s.fat, roas:s.roas,
     link:adLinkCell(ad),
     _cpmql:d.cpmql, _cac:s.cac, status:null};   // valores crus p/ colorir vs meta
 }
@@ -569,12 +671,7 @@ function relRenderAdTable(id,list){
     {key:'leads',label:'Leads',type:'int'},{key:'cpl',label:'CPL',type:'brl'},
     {key:'mqls',label:'MQLs',type:'int'},{key:'tx',label:'Tx‑MQL',type:'pct'},
     {key:'cpmql',label:'CPMQL',type:'brl'},
-    {key:'agendamentos',label:'Agendamentos',type:'int'},
-    {key:'txag',label:'Tx‑Agend.',type:'pct'},
-    {key:'cpag',label:'CPAG',type:'brl'},
-    {key:'reunioes',label:'Reuniões',type:'int'},
-    {key:'noshow',label:'No‑Show',type:'pct'},
-    {key:'cprr',label:'CPRR',type:'brl'},
+    {key:'convmql',label:'ConvMQL',type:'pct'},
     {key:'vendas',label:'Vendas',type:'int'},
     {key:'cac',label:'CAC',type:'brl'},
     {key:'fat',label:'Faturamento',type:'brl'},
@@ -754,15 +851,14 @@ const DAILY_COLS=[
   {key:'ctr',label:'CTR',type:'pct'},{key:'cr',label:'CR',type:'pct'},{key:'convlp',label:'ConvLP',type:'pct'},
   {key:'leads',label:'Leads',type:'int',heat:'leads'},{key:'cpl',label:'CPL',type:'brl'},
   {key:'tx',label:'Tx‑MQL',type:'pct'},{key:'mqls',label:'MQLs',type:'int',heat:'mqls'},{key:'cpmql',label:'CPMQL',type:'brl'},
-  // Mar01: métricas de venda (aguardando aba de compradores -> "-")
-  {key:'vendas',label:'Vendas',type:'int'},{key:'cac',label:'CAC',type:'brl'},
-  {key:'fat',label:'Fat.',type:'brl'},{key:'tm',label:'TM',type:'brl'},{key:'roas',label:'ROAS',type:'num'},
+  {key:'convmql',label:'ConvMQL',type:'pct'},{key:'vendas',label:'Vendas',type:'int'},{key:'cac',label:'CAC',type:'brl'},
+  {key:'fat',label:'Fat.',type:'brl'},{key:'tm',label:'TM',type:'brl'},{key:'roas',label:'ROAS',type:'num',heat:'roas'},
 ];
 function dailyCells(x,d,isTotal){
   const s=salesOf(x);
   return {date:isTotal?null:x.d, wd:isTotal?'':weekday(x.d), gasto:d.gasto, cpm:d.cpm, ctr:d.ctr, cr:d.cr, convlp:d.convlp,
     leads:x.leads, cpl:d.cpl, tx:d.tx, mqls:x.mqls, cpmql:d.cpmql,
-    vendas:s.vendas, cac:s.cac, fat:s.fat, tm:s.tm, roas:s.roas};
+    convmql:s.convmql, vendas:s.vendas, cac:s.cac, fat:s.fat, tm:s.tm, roas:s.roas};
 }
 
 /* ---------------- PAGE 2: Captura Meta Ads ---------------- */
@@ -805,15 +901,19 @@ function renderMeta(){
   hbar('mMqlAd', Object.entries(mqlByAd).map(([label,leads])=>({label,leads})), x=>x.leads, ()=>cvar('--chart-mqls'), 10, 'MQLs');
   // Mar02: donut de taxa de qualificação (verde = MQL, vermelho = desqualificado)
   donutQlf('mQlfDonut', t.mqls, t.leads);
-  // Mar02: Top anúncios por CAC (CAC "-" até conectar compradores; ordena por CPMQL como proxy)
+  // Compilado dos Anúncios (CAC/Fat/ROAS "-" até conectar compradores; ordena por CPMQL como proxy)
   const adAggM=buildAgg(fL,fM,'ad');
   const topCacRows=Object.entries(adAggM).map(([ad,a])=>{const d=derive(a),s=salesOf(a);
-    return {k:ad, cells:{dim:ad,mqls:a.mqls,cpmql:d.cpmql,cac:s.cac,vendas:s.vendas},
+    return {k:ad, cells:{dim:ad,mqls:a.mqls,cpmql:d.cpmql,vendas:s.vendas,cac:s.cac,fat:s.fat,roas:s.roas},
       _ord:(s.cac!=null?s.cac:(d.cpmql!=null?d.cpmql:Infinity))};})
     .sort((a,b)=>a._ord-b._ord).slice(0,10);
-  renderTable({id:'mTopCac', center:true, fit:true,
-    cols:[{key:'dim',label:'Anúncio',type:'dim',big:true},{key:'mqls',label:'MQLs',type:'int'},
-      {key:'cpmql',label:'CPMQL',type:'brl'},{key:'cac',label:'CAC',type:'brl'}],
+  // sem fit: 7 colunas não cabem legíveis dividindo 1/3 da página (.trio) —
+  // largura automática por coluna + scroll horizontal dentro do próprio card
+  // (mesmo padrão das tabelas hierárquicas), em vez de espremer tudo.
+  renderTable({id:'mTopCac', center:true,
+    cols:[{key:'dim',label:'Anúncios',type:'dim',big:true},{key:'mqls',label:'MQLs',type:'int'},
+      {key:'cpmql',label:'CPMQL',type:'brl'},{key:'vendas',label:'Vendas',type:'int'},
+      {key:'cac',label:'CAC',type:'brl'},{key:'fat',label:'Fat.',type:'brl'},{key:'roas',label:'ROAS',type:'num'}],
     rows:topCacRows});
 
   const dl=daily(fL,fM).slice().reverse();
@@ -826,14 +926,19 @@ function renderMeta(){
 
   // hierarquia — cada tabela vem do escopo que exclui a PRÓPRIA dimensão,
   // então todas as linhas irmãs continuam visíveis para multi-seleção (Ctrl).
+  // band:'l' (dim+Gasto) / band:'r' (MQLs em diante, intervalo fechado) só
+  // entram em ação (freeze) quando a tabela não cabe 100% sem rolar — ver
+  // renderSplitTable. Cabendo tudo, o flex nem mostra scroll e fica idêntico
+  // a uma tabela única.
   const hcols=[
-    {key:'dim',label:'',type:'dim',big:true},{key:'gasto',label:'Gasto',type:'brl'},{key:'cpm',label:'CPM',type:'brl'},
+    {key:'dim',label:'',type:'dim',big:true,band:'l'},{key:'gasto',label:'Gasto',type:'brl',band:'l'},
+    {key:'cpm',label:'CPM',type:'brl'},
     {key:'ctr',label:'CTR',type:'pct'},{key:'cr',label:'CR',type:'pct'},{key:'convlp',label:'ConvLP',type:'pct'},
     {key:'leads',label:'Leads',type:'int'},{key:'cpl',label:'CPL',type:'brl'},
-    {key:'tx',label:'Tx‑MQL',type:'pct'},{key:'mqls',label:'MQLs',type:'int'},{key:'cpmql',label:'CPMQL',type:'brl'},
-    // Mar03: métricas de venda (aguardando aba de compradores -> "-")
-    {key:'convmql',label:'ConvMQL',type:'pct'},{key:'vendas',label:'Vendas',type:'int'},{key:'cac',label:'CAC',type:'brl'},
-    {key:'fat',label:'Fat.',type:'brl'},{key:'tm',label:'TM',type:'brl'},{key:'roas',label:'ROAS',type:'num'},
+    {key:'tx',label:'Tx‑MQL',type:'pct'},
+    {key:'mqls',label:'MQLs',type:'int',band:'r'},{key:'cpmql',label:'CPMQL',type:'brl',band:'r'},
+    {key:'convmql',label:'ConvMQL',type:'pct',band:'r'},{key:'vendas',label:'Vendas',type:'int',band:'r'},{key:'cac',label:'CAC',type:'brl',band:'r'},
+    {key:'fat',label:'Fat.',type:'brl',band:'r'},{key:'tm',label:'TM',type:'brl',band:'r'},{key:'roas',label:'ROAS',type:'num',band:'r'},
   ];
   function hierRows(map){ return Object.entries(map).map(([k,a])=>{const d=derive(a),s=salesOf(a);
     return {k, cells:{dim:k,gasto:d.gasto,cpm:d.cpm,ctr:d.ctr,cr:d.cr,convlp:d.convlp,leads:a.leads,cpl:d.cpl,tx:d.tx,mqls:a.mqls,cpmql:d.cpmql,

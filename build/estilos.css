@@ -280,6 +280,42 @@
   table.dt.rel-adt tfoot .stk-l1, table.dt.rel-adt tfoot .stk-r{position:sticky; z-index:1; background:var(--tfoot)}
   table.dt.rel-adt .stk-l1{left:0; border-right:1px solid var(--border)}
   table.dt.rel-adt .stk-r{right:0; border-left:1px solid var(--border)}
+
+  /* tabelas hierárquicas (Campanha/Conjunto/Anúncio): por padrão cabe tudo sem
+     rolar. Só quando a soma das colunas estoura a largura do card é que
+     aparece scroll — nesse caso, a dimensão + Gasto ficam travadas à esquerda
+     e, do MQLs em diante (intervalo fechado), travadas à direita; só a faixa
+     do meio (CPM…Tx‑MQL) rola. Motor: 3 <table> independentes lado a lado
+     (renderSplitTable em app.js) — cabendo tudo, o flex nem mostra barra de
+     rolagem e fica idêntico a uma tabela única; só a seção do meio tem
+     overflow-x. */
+  .dt-split{display:flex; align-items:flex-start; min-width:100%}
+  .dt-split table.dt{min-width:0; width:auto}
+  .dt-split-fixed{flex:0 0 auto}
+  /* a faixa do meio encolhe até um mínimo utilizável (nunca some) e só then
+     ganha scroll própria; só nesse caso extremo (bandas fixas sozinhas já não
+     cabem) é que o .tbl-wrap (ancestral) rola o conjunto inteiro. */
+  .dt-split-scroll{flex:1 1 160px; min-width:100px; overflow-x:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent}
+  .dt-split-scroll::-webkit-scrollbar{height:7px}
+  .dt-split-scroll::-webkit-scrollbar-track{background:transparent}
+  .dt-split-scroll::-webkit-scrollbar-thumb{background:var(--border); border-radius:999px}
+  .dt-split-l table{border-right:1px solid var(--border)}
+  .dt-split-r table{border-left:1px solid var(--border)}
+  /* overflow-x:auto na faixa do meio força overflow-y a computar como "auto"
+     também (regra do CSS Overflow), então ELA — não o .tbl-wrap — vira o
+     "scroll container" de referência do position:sticky do próprio thead/
+     tfoot dessa faixa. Resultado: cabeçalho/rodapé "grudado" só na faixa do
+     meio não acompanha o scroll vertical do .tbl-wrap (quem rola de fato) e
+     desalinha da esquerda/direita — que, tendo sticky funcionando
+     corretamente, mostram o Total Geral sempre colado embaixo enquanto o
+     meio mostra outra linha na mesma posição. Em vez de corrigir só a faixa
+     do meio (o que manteria esse desalinhamento entre seções), desliga
+     sticky vertical nas 3 juntas — perde o "cabeçalho grudado ao rolar",
+     mas garante que as linhas das 3 tabelas continuem alinhadas.
+     Especificidade tem que bater ou superar "table.dt thead th"/"table.dt
+     tfoot td" (0,1,3) — só ".dt-split thead th" (0,1,2) perde e a regra
+     original vence, sticky fica ligado sem eu perceber. */
+  .dt-split table.dt thead th, .dt-split table.dt tfoot td{position:static}
   .rel-adlink{font-size:12px; font-weight:600; color:var(--accent-blue); text-decoration:none; white-space:nowrap}
   .rel-adlink:hover{text-decoration:underline}
   .rel-adlink.off{color:var(--muted); font-weight:400}

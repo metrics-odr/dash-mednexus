@@ -111,11 +111,12 @@ e, abaixo, acrescenta 3 blocos novos + um painel de metas editável:
   Editar recolore **CPMQL/CAC** nas tabelas de anúncio (verde ≤ meta · amarelo até +30% ·
   vermelho acima) e ajusta o badge Em observação/Avaliável (usa o volume mínimo), **tudo ao vivo**
   (`METAS` + `renderRelAds()` em `app.js`, sem re-render dos gráficos).
-- **Top Anúncios** e **Piores Anúncios** — 23 colunas + coluna **Status** (Anúncio · Status ·
-  Campanha · Conjunto · Gasto · Impr · CPM · CTR · Leads · CPL · MQLs · Tx‑MQL · CPMQL · Agendamentos ·
-  Tx‑Agend. · CPAG · Reuniões · No‑Show · CPRR · Vendas · CAC · Faturamento · ROAS · **Link**). Anúncio,
-  Status e Link ficam **sticky** (visíveis sem rolar). Ranking pelo **resultado mais profundo
-  disponível** (Venda→Reunião Realizada→Agendamento→MQL), amostra relevante primeiro; sem amostra → badge
+- **Top Anúncios** e **Piores Anúncios** — 17 colunas + coluna **Status** (Anúncio · Status ·
+  Campanha · Conjunto · Gasto · Impr · CPM · CTR · Leads · CPL · MQLs · Tx‑MQL · CPMQL · ConvMQL ·
+  Vendas · CAC · Faturamento · ROAS · **Link**). Sem Agendamentos/Reuniões Realizadas (sem fonte
+  neste cliente — ver "Lacunas de dados"). Anúncio, Status e Link ficam **sticky** (visíveis sem
+  rolar). Ranking pelo **resultado mais profundo disponível** (Venda→MQL, já que este cliente não
+  tem Reunião/Agendamento), amostra relevante primeiro; sem amostra → badge
   **"Em observação"** (nunca "vencedor"/"ruim" por 1 resultado ou por CTR/CPM/CPL isolados).
   Limiares em `build.py`: `SAMPLE_MIN_SPEND`, `SAMPLE_MIN_MQLS`, `TOP_ADS_N`. Scroll lateral
   **contido na tabela** (`.rel-adt` → `table-layout:auto`).
@@ -209,13 +210,14 @@ Três **páginas separadas** (sidebar, sem rolar entre elas):
    **tabela diária com heatmap (só mídia paga)**; **3 tabelas hierárquicas** Campanha →
    Conjunto → Anúncio, cada uma com **gráfico de linha colado embaixo**.
 3. **Relatório** — espelha a Visão Geral e acrescenta **painel de Metas editável** +
-   **Top Anúncios · Piores Anúncios** (22 colunas + Status, com link do criativo) +
+   **Top Anúncios · Piores Anúncios** (17 colunas + Status, com link do criativo) +
    **Insights de Tráfego** (texto de `relatorios.json`, foco em ação). Ver seção
    "Aba Relatório" acima e `build/GUIA-RELATORIOS.md`.
 
 **Ordem das colunas nas tabelas de heatmap/hierarquia:**
-`Data · Dia · Gasto · CPM · CTR · ConvForm(=Leads/Cliques) · Leads · CPL · Tx‑MQL · MQLs · CPMQL`
-(nas hierárquicas a 1ª coluna é a dimensão em vez de Data/Dia).
+`Data · Dia · Gasto · CPM · CTR · ConvForm(=Leads/Cliques) · Leads · CPL · Tx‑MQL · MQLs · CPMQL ·
+ConvMQL · Vendas · CAC · Fat. · TM · ROAS` (nas hierárquicas a 1ª coluna é a dimensão em vez de
+Data/Dia).
 
 **Regras obrigatórias das tabelas** (ver `GUIA-REPLICACAO.md`): cabeçalho sticky;
 ordenação tri‑state (asc→desc→reset); colunas redimensionáveis (persist localStorage);
@@ -223,8 +225,8 @@ linha "Total Geral" fixa; dimensão nunca truncada (400/250/600px, wrap, ≥11px
 seleção com toggle + **Ctrl multi (Set/OR)**; **filtro cruzado bidirecional** com
 âncora Anúncio>Conjunto>Campanha, reconstruindo tudo da fonte filtrada; tabela diária
 com **último dia no topo**. **Heatmap de cor fixa por métrica** (só a opacidade varia,
-maior valor = mais vibrante), aplicado apenas em **Gasto (vermelho) · Leads (azul) ·
-MQLs (verde)** — cores em `--heat-gasto/leads/mqls`. As demais colunas ficam sem heatmap.
+maior valor = mais vibrante), aplicado em **Gasto (vermelho) · Leads (azul) · MQLs (verde) ·
+ROAS (amarelo)** — cores em `--heat-gasto/leads/mqls/roas`. As demais colunas ficam sem heatmap.
 
 ## Lacunas de dados (comuns até o cliente enviar mais fontes)
 - **Vendas, Faturamento, ROAS, CAC** → precisam de uma aba de compradores (`GID_SALES`
