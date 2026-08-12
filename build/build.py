@@ -301,7 +301,9 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
          "ad": ["ad name"], "spent": ["amount spent", "valor gasto", "gasto"], "impr": ["impressions", "impress"],
          "clicks": ["link clicks", "clicks", "cliques"], "leads": ["leads"],
          "pv": ["landing page views", "page views", "pageviews"],
-         "chk": ["initiate checkout", "checkouts iniciados", "checkouts"],
+         # Cliente não tem evento "Initiate Checkout" configurado no pixel — usa
+         # "Adds to Cart" como proxy de Checkout (decisão do cliente).
+         "chk": ["adds to cart", "add to cart", "initiate checkout", "checkouts iniciados", "checkouts"],
          # Link do criativo (ex. Instagram) — coluna opcional adicionada pelo cliente
          # na aba de mídia. Usada na aba Relatório (Top/Piores anúncios) para linkar
          # o anúncio. Aliases cobrem variações do cabeçalho.

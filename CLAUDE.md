@@ -218,9 +218,12 @@ Três **páginas separadas** (sidebar, sem rolar entre elas):
 `Data · Dia · Gasto · CPM · CTR · ConvForm(=Leads/Cliques) · Leads · CPL · Tx‑MQL · MQLs · CPMQL ·
 ConvMQL · Vendas · CAC · Fat. · TM · ROAS` (nas hierárquicas a 1ª coluna é a dimensão em vez de
 Data/Dia). Nas tabelas diárias (heatmap, `DAILY_COLS`) entram também **Checkouts** e **VisCHK**
-(`Checkouts/Page Views`) logo após ConvForm e antes de Leads — vêm da coluna "Initiate Checkout"
-(aliases: `initiate checkout`/`checkouts iniciados`/`checkouts`) da aba **Meta Ads**; sem essa
-coluna na planilha, ambas ficam "-". Não entram nas tabelas hierárquicas Campanha/Conjunto/Anúncio.
+(`Checkouts/Page Views`) logo após ConvForm e antes de Leads — vêm da coluna **"Adds to Cart"**
+da aba **Meta Ads** (usada como proxy de Checkout: o cliente não tem o evento "Initiate Checkout"
+configurado no pixel; aliases em `build.py`: `adds to cart`/`add to cart`, com fallback para
+`initiate checkout`/`checkouts iniciados`/`checkouts` caso um dia venha a existir). Sem nenhuma
+dessas colunas na planilha, ambas ficam "-". Não entram nas tabelas hierárquicas
+Campanha/Conjunto/Anúncio.
 
 **Regras obrigatórias das tabelas** (ver `GUIA-REPLICACAO.md`): cabeçalho sticky;
 ordenação tri‑state (asc→desc→reset); colunas redimensionáveis (persist localStorage);
