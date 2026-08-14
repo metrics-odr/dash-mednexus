@@ -52,13 +52,17 @@ este cliente não usa esse critério).
 
 ### Vendas & Faturamento (cruzamento com Compradores)
 `build.py` → `build_sales_index()` lê a aba **New Subscriptions** e indexa por
-**telefone** (normalizado, só dígitos) → `{fat, n}`. Em `process()`, cada linha
-da **Conversas** é cruzada por telefone; a **primeira conversa** (mais antiga)
-daquele telefone leva o crédito da venda/faturamento — evita contar a mesma
+**telefone** (normalizado, só dígitos) → `{fat, receita, n}`. Em `process()`,
+as linhas da **Conversas** são ordenadas pela **data já parseada** (`parse_date`,
+não a string bruta da planilha — ordenar pela string quebraria a ordem
+cronológica entre meses, ex. "01/09" viria antes de "15/01") e cada linha é
+cruzada por telefone; a **primeira conversa** (mais antiga de fato) daquele
+telefone leva o crédito da venda/faturamento/receita — evita contar a mesma
 compra em duplicidade quando o mesmo número aparece em várias conversas. Os
-campos `vendas`/`fat` resultantes se propagam em `buildAgg`/`daily`/`totals`
-(`app.js`), acendendo sozinhos o funil (Vendas/Faturamento/CAC/ROAS/Ticket) e
-as tabelas Top/Piores anúncios. **Não** usa as colunas `Compra Detectada` /
+campos `vendas`/`fat`/`receita` resultantes se propagam em
+`buildAgg`/`daily`/`totals` (`app.js`), acendendo sozinhos o funil
+(Vendas/Faturamento/CAC/ROAS/Ticket) e as tabelas Top/Piores anúncios (que
+mostram **Receita** no lugar de TM). **Não** usa as colunas `Compra Detectada` /
 `Faturamento Detectado` já calculadas na planilha (decisão do cliente: cruzar
 do zero, mais robusto a erro de fórmula na planilha).
 
@@ -216,7 +220,7 @@ Três **páginas separadas** (sidebar, sem rolar entre elas):
 
 **Ordem das colunas nas tabelas de heatmap/hierarquia:**
 `Data · Dia · Gasto · CPM · CTR · ConvForm(=Leads/Cliques) · Leads · CPL · Tx‑MQL · MQLs · CPMQL ·
-ConvMQL · Vendas · CAC · Fat. · TM · ROAS` (nas hierárquicas a 1ª coluna é a dimensão em vez de
+ConvMQL · Vendas · CAC · Fat. · Receita · ROAS` (nas hierárquicas a 1ª coluna é a dimensão em vez de
 Data/Dia). Nas tabelas diárias (heatmap, `DAILY_COLS`) entram também **Checkouts** e **VisCHK**
 (`Checkouts/Page Views`) logo após CPMQL e antes de ConvMQL — vêm da coluna **"Adds to Cart"**
 da aba **Meta Ads** (usada como proxy de Checkout: o cliente não tem o evento "Initiate Checkout"

@@ -61,7 +61,7 @@ function salesOf(a){
   const g=(a?a.sp:0)*taxf();
   const mqls=(a&&a.mqls)||0;
   const agendamentos=(a&&a.agendamentos)||0, reunioes=(a&&a.reunioes)||0;
-  const vendas=(a&&a.vendas)||0, fat=(a&&a.fat)||0;
+  const vendas=(a&&a.vendas)||0, fat=(a&&a.fat)||0, receita=(a&&a.receita)||0;
   const hasAg=agendamentos>0, hasRe=reunioes>0, hasVd=vendas>0||fat>0;
   return {
     // MQL → Agendamento
@@ -79,26 +79,28 @@ function salesOf(a){
     cac:          hasVd&&vendas?g/vendas:null,
     roas:         hasVd&&g?fat/g:null,
     tm:           hasVd&&vendas?fat/vendas:null,
+    receita:      hasVd?receita:null,
     convmql:      hasVd&&mqls?vendas/mqls:null,
   };
 }
 function buildAgg(fL,fM,dim){
   const m={};
-  const get=k=>m[k]||(m[k]={sp:0,im:0,cl:0,pv:0,chk:0,leads:0,mqls:0,vendas:0,fat:0});
+  const get=k=>m[k]||(m[k]={sp:0,im:0,cl:0,pv:0,chk:0,leads:0,mqls:0,vendas:0,fat:0,receita:0});
   fM.forEach(r=>{const a=get(r[dim]); a.sp+=r.sp; a.im+=r.im; a.cl+=r.cl; a.pv+=r.pv; a.chk+=r.ck||0;});
-  fL.forEach(r=>{const a=get(r[dim]); a.leads+=1; a.mqls+=r.q; a.vendas+=r.vendas||0; a.fat+=r.fat||0;});
+  fL.forEach(r=>{const a=get(r[dim]); a.leads+=1; a.mqls+=r.q; a.vendas+=r.vendas||0; a.fat+=r.fat||0; a.receita+=r.receita||0;});
   return m;
 }
 function totals(fL,fM){
   let sp=0,im=0,cl=0,pv=0,chk=0; fM.forEach(r=>{sp+=r.sp;im+=r.im;cl+=r.cl;pv+=r.pv;chk+=r.ck||0;});
   return {sp, im, cl, pv, chk, leads:fL.length, mqls:fL.reduce((s,r)=>s+r.q,0),
-    vendas:fL.reduce((s,r)=>s+(r.vendas||0),0), fat:fL.reduce((s,r)=>s+(r.fat||0),0)};
+    vendas:fL.reduce((s,r)=>s+(r.vendas||0),0), fat:fL.reduce((s,r)=>s+(r.fat||0),0),
+    receita:fL.reduce((s,r)=>s+(r.receita||0),0)};
 }
 /* daily aggregation for a source pair */
 function daily(fL,fM){
-  const days={}; const g=d=>days[d]||(days[d]={d, sp:0,im:0,cl:0,pv:0,chk:0,leads:0,mqls:0,vendas:0,fat:0});
+  const days={}; const g=d=>days[d]||(days[d]={d, sp:0,im:0,cl:0,pv:0,chk:0,leads:0,mqls:0,vendas:0,fat:0,receita:0});
   fM.forEach(r=>{if(!r.d)return; const a=g(r.d); a.sp+=r.sp; a.im+=r.im; a.cl+=r.cl; a.pv+=r.pv; a.chk+=r.ck||0;});
-  fL.forEach(r=>{if(!r.d)return; const a=g(r.d); a.leads+=1; a.mqls+=r.q; a.vendas+=r.vendas||0; a.fat+=r.fat||0;});
+  fL.forEach(r=>{if(!r.d)return; const a=g(r.d); a.leads+=1; a.mqls+=r.q; a.vendas+=r.vendas||0; a.fat+=r.fat||0; a.receita+=r.receita||0;});
   return Object.values(days).sort((a,b)=>a.d<b.d?-1:1);
 }
 
@@ -854,14 +856,14 @@ const DAILY_COLS=[
   {key:'tx',label:'Tx‑MQL',type:'pct'},{key:'mqls',label:'MQLs',type:'int',heat:'mqls'},{key:'cpmql',label:'CPMQL',type:'brl'},
   {key:'chk',label:'Checkouts',type:'int'},{key:'vischk',label:'VisCHK',type:'pct'},
   {key:'convmql',label:'ConvMQL',type:'pct'},{key:'vendas',label:'Vendas',type:'int'},{key:'cac',label:'CAC',type:'brl'},
-  {key:'fat',label:'Fat.',type:'brl'},{key:'tm',label:'TM',type:'brl'},{key:'roas',label:'ROAS',type:'num',heat:'roas'},
+  {key:'fat',label:'Fat.',type:'brl'},{key:'receita',label:'Receita',type:'brl'},{key:'roas',label:'ROAS',type:'num',heat:'roas'},
 ];
 function dailyCells(x,d,isTotal){
   const s=salesOf(x);
   return {date:isTotal?null:x.d, wd:isTotal?'':weekday(x.d), gasto:d.gasto, cpm:d.cpm, ctr:d.ctr, cr:d.cr, convlp:d.convlp,
     chk:d.chk, vischk:d.vischk,
     leads:x.leads, cpl:d.cpl, tx:d.tx, mqls:x.mqls, cpmql:d.cpmql,
-    convmql:s.convmql, vendas:s.vendas, cac:s.cac, fat:s.fat, tm:s.tm, roas:s.roas};
+    convmql:s.convmql, vendas:s.vendas, cac:s.cac, fat:s.fat, receita:s.receita, roas:s.roas};
 }
 
 /* ---------------- PAGE 2: Captura Meta Ads ---------------- */
@@ -941,13 +943,13 @@ function renderMeta(){
     {key:'tx',label:'Tx‑MQL',type:'pct'},
     {key:'mqls',label:'MQLs',type:'int',band:'r'},{key:'cpmql',label:'CPMQL',type:'brl',band:'r'},
     {key:'convmql',label:'ConvMQL',type:'pct',band:'r'},{key:'vendas',label:'Vendas',type:'int',band:'r'},{key:'cac',label:'CAC',type:'brl',band:'r'},
-    {key:'fat',label:'Fat.',type:'brl',band:'r'},{key:'tm',label:'TM',type:'brl',band:'r'},{key:'roas',label:'ROAS',type:'num',band:'r'},
+    {key:'fat',label:'Fat.',type:'brl',band:'r'},{key:'receita',label:'Receita',type:'brl',band:'r'},{key:'roas',label:'ROAS',type:'num',band:'r'},
   ];
   function hierRows(map){ return Object.entries(map).map(([k,a])=>{const d=derive(a),s=salesOf(a);
     return {k, cells:{dim:k,gasto:d.gasto,cpm:d.cpm,ctr:d.ctr,cr:d.cr,convlp:d.convlp,leads:a.leads,cpl:d.cpl,tx:d.tx,mqls:a.mqls,cpmql:d.cpmql,
-      convmql:s.convmql,vendas:s.vendas,cac:s.cac,fat:s.fat,tm:s.tm,roas:s.roas}};}); }
+      convmql:s.convmql,vendas:s.vendas,cac:s.cac,fat:s.fat,receita:s.receita,roas:s.roas}};}); }
   function totRowOf(tt){const d=derive(tt),s=salesOf(tt);return{dim:null,gasto:d.gasto,cpm:d.cpm,ctr:d.ctr,cr:d.cr,convlp:d.convlp,leads:tt.leads,cpl:d.cpl,tx:d.tx,mqls:tt.mqls,cpmql:d.cpmql,
-    convmql:s.convmql,vendas:s.vendas,cac:s.cac,fat:s.fat,tm:s.tm,roas:s.roas};}
+    convmql:s.convmql,vendas:s.vendas,cac:s.cac,fat:s.fat,receita:s.receita,roas:s.roas};}
   const Sc=metaScope('C'), Sa=metaScope('A'), Sd=metaScope('D');
   const aggC=buildAgg(Sc.fL,Sc.fM,'camp'), aggA=buildAgg(Sa.fL,Sa.fM,'adset'), aggD=buildAgg(Sd.fL,Sd.fM,'ad');
   // Tabelas hierárquicas: NÃO usam "fit" — a dimensão (campanha/conjunto/anúncio)

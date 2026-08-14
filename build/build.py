@@ -233,8 +233,10 @@ def build_sales_index(sales_rows):
         if not phone:
             continue
         fat = to_float(cell(row, idx["faturamento"]))
-        entry = out.setdefault(phone, {"fat": 0.0, "n": 0})
+        receita = to_float(cell(row, idx["receita"]))
+        entry = out.setdefault(phone, {"fat": 0.0, "receita": 0.0, "n": 0})
         entry["fat"] += fat
+        entry["receita"] += receita
         entry["n"] += 1
     return out
 
@@ -260,7 +262,7 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
     # compra em duplicidade quando o mesmo numero aparece em varias conversas.
     rows_sorted = sorted(
         [r for r in conversas_rows[1:] if any((c or "").strip() for c in r)],
-        key=lambda r: cell(r, cidx["created"]) or "",
+        key=lambda r: parse_date(cell(r, cidx["created"])) or "",
     )
     attributed_phones: set[str] = set()
     for row in rows_sorted:
@@ -270,11 +272,12 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
         campaign_valid = valid_utm(campaign_raw)
         src = "meta" if campaign_valid else "org"
         phone = norm_phone(cell(row, cidx["phone"]))
-        vendas, fat = 0, 0.0
+        vendas, fat, receita = 0, 0.0, 0.0
         if phone and phone in sales_index and phone not in attributed_phones:
             attributed_phones.add(phone)
             vendas = sales_index[phone]["n"]
             fat = sales_index[phone]["fat"]
+            receita = sales_index[phone]["receita"]
         specialty = pretty_specialty(cell(row, cidx["specialty"]))
         leads.append({
             "d": parse_date(cell(row, cidx["created"])),
@@ -292,6 +295,7 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
             "ph": mask_phone(cell(row, cidx["phone"])),
             "vendas": vendas,
             "fat": round(fat, 2),
+            "receita": round(receita, 2),
         })
 
     mheader = meta_rows[0] if meta_rows else []
