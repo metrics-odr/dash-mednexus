@@ -25,7 +25,7 @@ const TODAY = B.today || B.date_max;
 
 /* ---------------- STATE ---------------- */
 const STATE = {
-  page:'geral', from:B.date_min, to:B.date_max, preset:'todo', tax:true,
+  page:'geral', from:(()=>{const [y,m]=TODAY.split('-'); return `${y}-${m}-01`;})(), to:TODAY, preset:'mes', tax:true,
   selDays:new Set(),
   mSelC:new Set(), mSelA:new Set(), mSelAd:new Set(),
   sort:{}, colw: JSON.parse(localStorage.getItem('dm_colw')||'{}'),
@@ -85,6 +85,8 @@ function salesOf(a){
     roas:         hasVd&&g?fat/g:null,
     tm:           hasVd&&vendas?fat/vendas:null,
     receita:      hasVd?receita:null,
+    roasReceita:  hasVd&&g?receita/g:null,
+    tmReceita:    hasVd&&vendas?receita/vendas:null,
     convmql:      hasVd&&mqls?vendas/mqls:null,
   };
 }
@@ -344,7 +346,7 @@ function renderSplitTable(cfg){
 }
 /* Heatmap por coluna: cor FIXA por métrica (definida em identidade-visual.css),
    só a OPACIDADE varia com o valor (maior valor = mais vibrante). */
-const HEAT_HUE={gasto:'--heat-gasto', leads:'--heat-leads', mqls:'--heat-mqls', roas:'--heat-roas'};
+const HEAT_HUE={gasto:'--heat-gasto', leads:'--heat-leads', mqls:'--heat-mqls', roas:'--heat-roas', vendas:'--heat-vendas'};
 function heat(v,lo,hi,kind){
   if(v==null||!isFinite(v)||hi===lo||!HEAT_HUE[kind]) return 'transparent';
   const t=Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
@@ -519,8 +521,9 @@ function renderGeralCore(ids){
     ['Page Views', intf(t.pv), [['CR',pct(dv.cr)],['CPV',brl(dv.cpv)]]],
     ['Leads', intf(t.leads), [['CPL',brl(dv.cpl)],['ConvLP',pct(dv.convlp)]]],
     ['MQLs (Médicos)', intf(t.mqls), [['Tx‑MQL',pct(dv.tx)],['CPMQL',brl(dv.cpmql)]], false, 'hl-mql'],
-    ['Vendas', s.vendas!=null?intf(s.vendas):NA, [['CAC',s.cac!=null?brl(s.cac):NA]], s.vendas==null],
-    ['Faturamento', s.fat!=null?brl(s.fat):NA, [['ROAS',s.roas!=null?numf(s.roas):NA],['Ticket',s.tm!=null?brl(s.tm):NA]], s.fat==null],
+    ['Vendas', s.vendas!=null?intf(s.vendas):NA, [['ConvMQL',s.convmql!=null?pct(s.convmql):NA],['CAC',s.cac!=null?brl(s.cac):NA]], s.vendas==null],
+    ['Receita', s.receita!=null?brl(s.receita):NA, [['ROAS',s.roasReceita!=null?numf(s.roasReceita):NA],['Ticket',s.tmReceita!=null?brl(s.tmReceita):NA]], s.receita==null, 'hl-fat'],
+    ['Faturamento', s.fat!=null?brl(s.fat):NA, [['ROAS',s.roas!=null?numf(s.roas):NA],['Ticket',s.tm!=null?brl(s.tm):NA]], s.fat==null, 'hl-fat'],
   ];
   document.getElementById(ids.funnel).innerHTML=funnelHTML(steps);
   // ---- Mar05: métricas secundárias mais úteis (não repetem o funil) ----
@@ -566,7 +569,7 @@ function renderGeralCore(ids){
   const dl=daily(fL,fM,fS).slice().reverse();
   renderTable({id:ids.daily, cols:DAILY_COLS, center:true, fit:true,
     rows:dl.map(x=>{const d=derive(x); return {k:x.d, cells:dailyCells(x,d)};}),
-    total:(()=>{const d=derive(t);return dailyCells({d:null,leads:t.leads,mqls:t.mqls},d,true);})(),
+    total:(()=>{const d=derive(t);return dailyCells({...t,d:null},d,true);})(),
     selectable:true, selSet:STATE.selDays,
     onSelect:(k,e)=>{ toggleSet(STATE.selDays,k,e&&(e.ctrlKey||e.metaKey)); syncDateInputs(); renderAll(); },
   });
@@ -863,7 +866,7 @@ const DAILY_COLS=[
   {key:'leads',label:'Leads',type:'int',heat:'leads'},{key:'cpl',label:'CPL',type:'brl'},
   {key:'tx',label:'Tx‑MQL',type:'pct'},{key:'mqls',label:'MQLs',type:'int',heat:'mqls'},{key:'cpmql',label:'CPMQL',type:'brl'},
   {key:'chk',label:'Checkouts',type:'int'},{key:'vischk',label:'VisCHK',type:'pct'},
-  {key:'convmql',label:'ConvMQL',type:'pct'},{key:'vendas',label:'Vendas',type:'int'},{key:'cac',label:'CAC',type:'brl'},
+  {key:'convmql',label:'ConvMQL',type:'pct'},{key:'vendas',label:'Vendas',type:'int',heat:'vendas'},{key:'cac',label:'CAC',type:'brl'},
   {key:'fat',label:'Fat.',type:'brl'},{key:'receita',label:'Receita',type:'brl'},{key:'roas',label:'ROAS',type:'num',heat:'roas'},
 ];
 function dailyCells(x,d,isTotal){
@@ -904,7 +907,8 @@ function renderMeta(){
     ['Leads', intf(t.leads), [['CPL',brl(dv.cpl)],['ConvLP',pct(dv.convlp)]]],
     ['MQLs (Médicos)', intf(t.mqls), [['Tx‑MQL',pct(dv.tx)],['CPMQL',brl(dv.cpmql)]], false, 'hl-mql'],
     ['Vendas', s.vendas!=null?intf(s.vendas):NA, [['ConvMQL',s.convmql!=null?pct(s.convmql):NA],['CAC',s.cac!=null?brl(s.cac):NA]], s.vendas==null],
-    ['Faturamento', s.fat!=null?brl(s.fat):NA, [['ROAS',s.roas!=null?numf(s.roas):NA],['Ticket',s.tm!=null?brl(s.tm):NA]], s.fat==null],
+    ['Receita', s.receita!=null?brl(s.receita):NA, [['ROAS',s.roasReceita!=null?numf(s.roasReceita):NA],['Ticket',s.tmReceita!=null?brl(s.tmReceita):NA]], s.receita==null, 'hl-fat'],
+    ['Faturamento', s.fat!=null?brl(s.fat):NA, [['ROAS',s.roas!=null?numf(s.roas):NA],['Ticket',s.tm!=null?brl(s.tm):NA]], s.fat==null, 'hl-fat'],
   ];
   document.getElementById('metaFunnel').innerHTML=funnelHTML(steps);
 
@@ -932,7 +936,7 @@ function renderMeta(){
   const dl=daily(fL,fM,fS).slice().reverse();
   renderTable({id:'tDaily', cols:DAILY_COLS, center:true, fit:true,
     rows:dl.map(x=>{const d=derive(x); return {k:x.d, cells:dailyCells(x,d)};}),
-    total:(()=>{const d=derive(t);return dailyCells({d:null,leads:t.leads,mqls:t.mqls},d,true);})(),
+    total:(()=>{const d=derive(t);return dailyCells({...t,d:null},d,true);})(),
     selectable:true, selSet:STATE.selDays,
     onSelect:(k,e)=>{ toggleSet(STATE.selDays,k,e&&(e.ctrlKey||e.metaKey)); syncDateInputs(); renderAll(); },
   });
