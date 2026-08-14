@@ -18,9 +18,12 @@ Criterio de Lead Qualificado (MQL): coluna "E medico?" (Conversas) / "Medico?"
 (Leads) == "Sim".
 
 Este script apenas LE as planilhas (export CSV publico) e emite os REGISTROS
-BRUTOS (leads[] e meta[]) dentro do HTML. Todos os filtros, agregacoes, KPIs,
-tabelas e graficos sao calculados no navegador (client-side). Nunca escreve
-nada de volta.
+BRUTOS (leads[], meta[] e sales[]) dentro do HTML. sales[] tem um registro POR
+COMPRA (nunca agregado por telefone), com a DATA REAL da compra — camp/adset/ad
+vem da 1a conversa daquele telefone (atribuicao do anuncio de origem), mas a
+data nunca e' a da conversa, senao vendas de dias diferentes seriam somadas no
+mesmo dia. Todos os filtros, agregacoes, KPIs, tabelas e graficos sao
+calculados no navegador (client-side). Nunca escreve nada de volta.
 
 Teste local: --conversas-file / --meta-file / --sales-file / --leads-file
 apontando para CSVs baixados.
@@ -216,28 +219,30 @@ def cell(row, i):
 # Compradores ("New Subscriptions") -> indice por telefone
 # --------------------------------------------------------------------------- #
 def build_sales_index(sales_rows):
-    """Le a aba de Compradores e devolve {telefone_normalizado: {"fat":R$, "n":compras}}.
-    Cruzamento é por TELEFONE (a Conversas não tem e-mail; o Lead LP antigo tem
-    e-mail mas está fora do escopo principal deste dashboard)."""
+    """Le a aba de Compradores e devolve {telefone_normalizado: [{"d":..,"fat":..,"receita":..}, ...]},
+    UMA ENTRADA POR LINHA de compra (nao agregada por telefone). Cruzamento é por
+    TELEFONE (a Conversas não tem e-mail; o Lead LP antigo tem e-mail mas está fora
+    do escopo principal deste dashboard). Mantemos cada compra separada — com sua
+    própria data — para atribuir a venda ao dia em que ela REALMENTE aconteceu,
+    em vez de empilhar todo o histórico de compras do telefone num único dia."""
     header = sales_rows[0] if sales_rows else []
     idx = header_index(
         header,
-        {"phone": ["telefone"], "faturamento": ["faturamento"], "receita": ["receita"]},
-        {"phone": 3, "faturamento": 6, "receita": 7},
+        {"phone": ["telefone"], "date": ["data"], "faturamento": ["faturamento"], "receita": ["receita"]},
+        {"phone": 3, "date": 0, "faturamento": 6, "receita": 7},
     )
-    out: dict[str, dict] = {}
+    out: dict[str, list] = {}
     for row in sales_rows[1:]:
         if not any((c or "").strip() for c in row):
             continue
         phone = norm_phone(cell(row, idx["phone"]))
         if not phone:
             continue
-        fat = to_float(cell(row, idx["faturamento"]))
-        receita = to_float(cell(row, idx["receita"]))
-        entry = out.setdefault(phone, {"fat": 0.0, "receita": 0.0, "n": 0})
-        entry["fat"] += fat
-        entry["receita"] += receita
-        entry["n"] += 1
+        out.setdefault(phone, []).append({
+            "d": parse_date(cell(row, idx["date"])),
+            "fat": to_float(cell(row, idx["faturamento"])),
+            "receita": to_float(cell(row, idx["receita"])),
+        })
     return out
 
 
@@ -257,14 +262,18 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
     )
 
     leads = []
-    # atribuicao de venda por telefone: 1a conversa daquele telefone (a mais
-    # antiga) leva o credito da venda/faturamento — evita contar a mesma
-    # compra em duplicidade quando o mesmo numero aparece em varias conversas.
+    # atribuicao do ANUNCIO/campanha de uma venda por telefone: a 1a conversa
+    # daquele telefone (a mais antiga de fato) e' quem levou aquele contato a
+    # comprar, entao e' ela que define camp/adset/ad da venda — evita atribuir
+    # a mesma compra a mais de uma conversa quando o numero aparece varias vezes.
+    # A DATA da venda, porem, e' a data real da compra (aba Compradores), nunca
+    # a data da conversa — datas diferentes nao devem ser somadas no mesmo dia.
     rows_sorted = sorted(
         [r for r in conversas_rows[1:] if any((c or "").strip() for c in r)],
         key=lambda r: parse_date(cell(r, cidx["created"])) or "",
     )
     attributed_phones: set[str] = set()
+    phone_attrib: dict[str, dict] = {}
     for row in rows_sorted:
         if is_test_lead(" ".join(str(c) for c in row)):
             continue
@@ -272,20 +281,21 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
         campaign_valid = valid_utm(campaign_raw)
         src = "meta" if campaign_valid else "org"
         phone = norm_phone(cell(row, cidx["phone"]))
-        vendas, fat, receita = 0, 0.0, 0.0
-        if phone and phone in sales_index and phone not in attributed_phones:
+        camp = campaign_raw if campaign_valid else "(sem campanha)"
+        adset = cell(row, cidx["adset"]) if campaign_valid else "(sem conjunto)"
+        ad = cell(row, cidx["ad"]) if campaign_valid else "(sem anúncio)"
+        conversa_date = parse_date(cell(row, cidx["created"]))
+        if phone and phone not in attributed_phones:
             attributed_phones.add(phone)
-            vendas = sales_index[phone]["n"]
-            fat = sales_index[phone]["fat"]
-            receita = sales_index[phone]["receita"]
+            phone_attrib[phone] = {"src": src, "camp": camp, "adset": adset, "ad": ad, "d": conversa_date}
         specialty = pretty_specialty(cell(row, cidx["specialty"]))
         leads.append({
             "d": parse_date(cell(row, cidx["created"])),
             "src": src,
             "plat": "ig" if src == "meta" else "—",
-            "camp": campaign_raw if campaign_valid else "(sem campanha)",
-            "adset": cell(row, cidx["adset"]) if campaign_valid else "(sem conjunto)",
-            "ad": cell(row, cidx["ad"]) if campaign_valid else "(sem anúncio)",
+            "camp": camp,
+            "adset": adset,
+            "ad": ad,
             "prof": specialty,
             "bucket": specialty,
             "q": 1 if is_medico(cell(row, cidx["medico"])) else 0,
@@ -293,10 +303,28 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
             "nm": first_last_initial(cell(row, cidx["name"])),
             "em": "—",
             "ph": mask_phone(cell(row, cidx["phone"])),
-            "vendas": vendas,
-            "fat": round(fat, 2),
-            "receita": round(receita, 2),
         })
+
+    # Vendas: um registro POR COMPRA (nunca agregada por telefone), na data real
+    # da compra; camp/adset/ad vem da 1a conversa daquele telefone (phone_attrib).
+    # Telefone sem conversa correspondente na aba Conversas nao aparece (mesmo
+    # comportamento de antes: so contamos vendas cruzadas com um contato conhecido).
+    sales = []
+    for phone, purchases in sales_index.items():
+        attrib = phone_attrib.get(phone)
+        if not attrib:
+            continue
+        for p in purchases:
+            sales.append({
+                "d": p["d"] or attrib["d"],
+                "src": attrib["src"],
+                "camp": attrib["camp"],
+                "adset": attrib["adset"],
+                "ad": attrib["ad"],
+                "vendas": 1,
+                "fat": round(p["fat"], 2),
+                "receita": round(p["receita"], 2),
+            })
 
     mheader = meta_rows[0] if meta_rows else []
     midx = header_index(
@@ -348,7 +376,9 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
         if any((c or "").strip() for c in row) and not is_test_lead(" ".join(str(c) for c in row))
     ) if leads_lp_rows else 0
 
-    dates = sorted({d for d in ([l["d"] for l in leads if l["d"]] + [m["d"] for m in meta if m["d"]])})
+    dates = sorted({d for d in (
+        [l["d"] for l in leads if l["d"]] + [m["d"] for m in meta if m["d"]] + [s["d"] for s in sales if s["d"]]
+    )})
     now_brt = datetime.now(BRT)
     return {
         "build": {
@@ -372,6 +402,7 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
         },
         "leads": leads,
         "meta": meta,
+        "sales": sales,
         # Anúncio -> permalink do criativo (aba Relatório).
         "ad_links": ad_links,
         # Insights de Tráfego (texto pré-escrito, lido de relatorios.json). Preenchido
@@ -454,8 +485,8 @@ def main():
 
     b = data["build"]
     q = sum(l["q"] for l in data["leads"])
-    vd = sum(l["vendas"] for l in data["leads"])
-    fat = sum(l["fat"] for l in data["leads"])
+    vd = sum(s["vendas"] for s in data["sales"])
+    fat = sum(s["fat"] for s in data["sales"])
     print("== build ok ==", file=sys.stderr)
     print(f"  periodo   : {b['date_min']} -> {b['date_max']}", file=sys.stderr)
     print(f"  leads MSG : {len(data['leads'])}  MQLs (médicos): {q}", file=sys.stderr)

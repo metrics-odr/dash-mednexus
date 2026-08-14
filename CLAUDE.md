@@ -52,18 +52,26 @@ este cliente não usa esse critério).
 
 ### Vendas & Faturamento (cruzamento com Compradores)
 `build.py` → `build_sales_index()` lê a aba **New Subscriptions** e indexa por
-**telefone** (normalizado, só dígitos) → `{fat, receita, n}`. Em `process()`,
-as linhas da **Conversas** são ordenadas pela **data já parseada** (`parse_date`,
-não a string bruta da planilha — ordenar pela string quebraria a ordem
-cronológica entre meses, ex. "01/09" viria antes de "15/01") e cada linha é
-cruzada por telefone; a **primeira conversa** (mais antiga de fato) daquele
-telefone leva o crédito da venda/faturamento/receita — evita contar a mesma
-compra em duplicidade quando o mesmo número aparece em várias conversas. Os
-campos `vendas`/`fat`/`receita` resultantes se propagam em
-`buildAgg`/`daily`/`totals` (`app.js`), acendendo sozinhos o funil
-(Vendas/Faturamento/CAC/ROAS/Ticket) e as tabelas Top/Piores anúncios (que
-mostram **Receita** no lugar de TM). **Não** usa as colunas `Compra Detectada` /
-`Faturamento Detectado` já calculadas na planilha (decisão do cliente: cruzar
+**telefone** (normalizado, só dígitos) → lista de compras **não agregada**,
+uma entrada por linha: `[{d, fat, receita}, ...]` (`d` = data real daquela
+compra). Em `process()`, as linhas da **Conversas** são ordenadas pela **data
+já parseada** (`parse_date`, não a string bruta da planilha — ordenar pela
+string quebraria a ordem cronológica entre meses, ex. "01/09" viria antes de
+"15/01") para achar a **1ª conversa** (mais antiga de fato) de cada telefone;
+essa conversa define **apenas** camp/adset/ad da venda (o anúncio que trouxe
+aquele contato) — nunca a data. Cada compra vira um registro próprio em
+`DATA.sales[]` (`{d, camp, adset, ad, vendas:1, fat, receita}`) com a **data
+real da compra**, nunca a data da conversa — isso evita empilhar num único dia
+todo o histórico de compras de um telefone (bug corrigido: um cliente com 2
+compras em datas diferentes não pode aparecer como "2 vendas" no dia da
+primeira conversa). No navegador, `salesActive()` (`app.js`) filtra `sales[]`
+pela mesma data ativa que `leadsActive()`/`metaActive()`, e os três arrays
+(`fL`/`fM`/`fS`) se propagam juntos em `buildAgg`/`daily`/`totals`, acendendo
+o funil (Vendas/Faturamento/CAC/ROAS/Ticket) e as tabelas Top/Piores anúncios
+(que mostram **Receita** no lugar de TM). Telefone com compra mas sem nenhuma
+conversa correspondente não aparece (mesmo comportamento de sempre). **Não**
+usa as colunas `Compra Detectada` / `Faturamento Detectado` já calculadas na
+planilha (decisão do cliente: cruzar
 do zero, mais robusto a erro de fórmula na planilha).
 
 ### Imposto da mídia paga
@@ -86,7 +94,7 @@ estruturado. A Conversas já traz `Campanha`/`Conjunto`/`Anúncio` prontos
 ## Arquitetura / arquivos
 
 ```
-build/build.py            # lê os 2 CSVs (read-only), emite REGISTROS BRUTOS (leads[]/meta[]/ad_links); render() COSTURA os 4 arquivos abaixo
+build/build.py            # lê os 2 CSVs (read-only), emite REGISTROS BRUTOS (leads[]/meta[]/sales[]/ad_links); render() COSTURA os 4 arquivos abaixo
 build/template.html       # esqueleto HTML. Placeholders __STYLES__, __APP_JS__, __DATA_JSON__, __BUILD_ID__, __GENERATED_BRT__
 build/identidade-visual.css  # TODAS as cores (tema claro=padrão / escuro). Mexa AQUI p/ trocar só cor
 build/estilos.css         # layout/componentes (sidebar, topbar, period-picker, funil, tabelas, gráficos, aba Relatório)
