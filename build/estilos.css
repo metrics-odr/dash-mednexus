@@ -149,8 +149,11 @@
   .step.hl-mql{background:var(--step-mql-bg); border-left-color:var(--step-mql-bd)}
   .step.hl-gasto{background:var(--step-gasto-bg); border-left-color:var(--step-gasto-bd)}
   .step.hl-fat{background:var(--step-fat-bg); border-left-color:var(--step-fat-bd)}
-  .step.hl-mql .m-val,.step.hl-gasto .m-val,.step.hl-fat .m-val{font-size:26px; font-weight:800}
+  .step.hl-mql .m-val,.step.hl-gasto .m-val{font-size:26px; font-weight:800}
   .step.hl-mql .m-label,.step.hl-gasto .m-label,.step.hl-fat .m-label{font-weight:600; color:var(--ink)}
+  /* Receita/Faturamento têm valor longo (R$) + 2 métricas secundárias — fonte do
+     tamanho padrão (como o card Vendas) pra nunca quebrar linha e inchar o card */
+  .step.hl-fat .m-val{font-size:20px; font-weight:800}
   .step .step-main{min-width:0}
   .step .m-label{font-size:11.5px; color:var(--muted)}
   .step .m-val{font-size:20px; font-weight:700; letter-spacing:-.02em; white-space:nowrap}
