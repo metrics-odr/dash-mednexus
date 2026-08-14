@@ -192,10 +192,13 @@ mapa `ad_links` (anúncio → 1 permalink). Usado no "Link" das tabelas Top/Pior
 > **Layout modular:** o front-end é separado em `identidade-visual.css` + `estilos.css`
 > + `app.js`, costurados por `render()` nos placeholders `__STYLES__`/`__APP_JS__`.
 > Página 1 usa **funil vertical de leads** (Gasto → Impressões → Cliques → Leads →
-> MQLs → Vendas/Faturamento "-") + KPIs secundários. Topbar tem **seletor de período
-> em calendário** (period-picker). **Heatmap** das tabelas diárias = cor FIXA por
-> métrica (só opacidade varia): **Gasto=vermelho · Leads=azul · MQLs=verde**
-> (`--heat-gasto/leads/mqls`), aplicado só nessas 3 colunas.
+> MQLs → Vendas → Receita/Faturamento) + KPIs secundários. Cards de Gasto, Receita e
+> Faturamento têm destaque visual (`hl-gasto`/`hl-fat`, fundo colorido + valor maior);
+> Receita vem antes de Faturamento e traz Ticket/ROAS calculados sobre a receita.
+> Topbar tem **seletor de período em calendário** (period-picker, default **"Este
+> mês"**). **Heatmap** das tabelas diárias = cor FIXA por
+> métrica (só opacidade varia): **Gasto=vermelho · Leads=azul · MQLs=ciano ·
+> Vendas=verde** (`--heat-gasto/leads/mqls/vendas`), aplicado só nessas colunas.
 
 O `build.py` **não agrega**: exporta as linhas cruas e TODA a lógica (filtros de
 data, filtro cruzado, KPIs, tabelas, gráficos, heatmap, imposto) roda no navegador.
@@ -243,8 +246,10 @@ linha "Total Geral" fixa; dimensão nunca truncada (400/250/600px, wrap, ≥11px
 seleção com toggle + **Ctrl multi (Set/OR)**; **filtro cruzado bidirecional** com
 âncora Anúncio>Conjunto>Campanha, reconstruindo tudo da fonte filtrada; tabela diária
 com **último dia no topo**. **Heatmap de cor fixa por métrica** (só a opacidade varia,
-maior valor = mais vibrante), aplicado em **Gasto (vermelho) · Leads (azul) · MQLs (verde) ·
-ROAS (amarelo)** — cores em `--heat-gasto/leads/mqls/roas`. As demais colunas ficam sem heatmap.
+maior valor = mais vibrante), aplicado em **Gasto (vermelho) · Leads (azul) · MQLs (ciano) ·
+Vendas (verde) · ROAS (amarelo)** — cores em `--heat-gasto/leads/mqls/vendas/roas`. As demais
+colunas ficam sem heatmap. Linha "Total Geral" da tabela diária soma Vendas/CAC/Fat./Receita/
+ROAS (via `totals()`/`salesOf()`, não um objeto parcial) — mesma lógica das tabelas hierárquicas.
 
 ## Lacunas de dados (comuns até o cliente enviar mais fontes)
 - **Vendas, Faturamento, ROAS, CAC** → precisam de uma aba de compradores (`GID_SALES`
