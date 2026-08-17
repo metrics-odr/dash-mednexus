@@ -152,12 +152,13 @@ function colWidth(cfg,c){ const saved=(STATE.colw[cfg.id]||{})[c.key];
   return 92; }
 function renderTable(cfg){
   // tabelas com colunas travadas EM BANDA (band:'l'/'r' — não confundir com o
-  // stk:'l1'/'l2'/'r' do rel-adt, esquema à parte) usam um motor separado —
-  // ver renderSplitTable: position:sticky por célula não dá pra "reservar
-  // espaço" numa única <table>, e colunas travadas em banda (mais de 1 de
-  // cada lado) acabam desenhando por cima do conteúdo do meio quando a
-  // tabela estoura a largura do card. 3 tabelas lado a lado (esquerda fixa /
-  // meio com scroll / direita fixa) evita esse problema por construção.
+  // stk:'l1'/'r' do rel-adt, esquema à parte, só 1 coluna de cada lado) usam
+  // um motor separado — ver renderSplitTable — porque aqui há VÁRIAS colunas
+  // coladas de cada lado, e a soma delas pode superar a largura do card:
+  // position:sticky por célula nesse caso gruda as bandas por cima do miolo
+  // em vez de ao lado (o miolo fica permanentemente encoberto, sem posição
+  // de scroll que o revele). 3 <table> lado a lado, cada uma só do tamanho
+  // que precisa, não tem esse problema.
   if(cfg.cols.some(c=>c.band)) return renderSplitTable(cfg);
   const table=document.getElementById(cfg.id); if(!table) return;
   table.classList.toggle('dt-center', !!cfg.center);   // Mar01: dados centralizados
@@ -247,16 +248,29 @@ function renderTable(cfg){
   if(cfg.afterRender) cfg.afterRender(table, rows);
 }
 /* ---------------- tabela "split" (colunas travadas em banda) ----------------
-   3 <table> independentes lado a lado dentro de um flex (esquerda fixa · meio
-   com scroll próprio · direita fixa), em vez de position:sticky por célula.
-   position:sticky não reserva espaço: quando o "puxão" da coluna travada é
-   grande (tabela bem mais larga que o card), ela desenha por cima do conteúdo
-   do meio em vez de ficar ao lado. 3 tabelas separadas não tem esse problema
-   — cada uma só ocupa o espaço que ela mesma define. Cabendo tudo sem
-   scroll, o flex simplesmente não mostra nenhuma barra e fica idêntico a uma
-   tabela única. */
+   3 <table> independentes lado a lado (esquerda fixa · meio com scroll
+   próprio · direita fixa). Cada seção rola VERTICALMENTE por conta própria
+   (max-height igual ao do .tbl-wrap ancestral + overflow-y:auto — ver CSS
+   .dt-split-fixed/.dt-split-scroll) e um listener de 'scroll' sincroniza as
+   3 (scrollTop) pra se comportarem como uma tabela só. Isso evita as 2
+   armadilhas de quando isso era 1 única faixa por posição:
+   1) cabeçalho "solto": se só o miolo tem overflow-x:auto, o CSS força
+      overflow-y a virar "auto" nele também (canonicalização do spec) —
+      mas como o miolo nunca chega a rolar de fato sozinho (cresce até
+      caber o conteúdo), ele vira um scroll container que nunca se move,
+      e o sticky do thead gruda relativo A ELE, não ao .tbl-wrap que
+      realmente rola — daí o cabeçalho "sobe" junto com o resto ao rolar.
+   2) banda cobrindo o miolo: position:sticky por célula numa única
+      <table> não sobra espaço pro miolo quando (banda esquerda + banda
+      direita) > largura do card — o miolo fica permanentemente atrás das
+      bandas, sem posição de scroll que o revele.
+   Cada seção rolando por si (bounded, overflow-y:auto de verdade) faz o
+   sticky nativo funcionar sem ressalva nenhuma, e cada uma só ocupa o
+   espaço que ela mesma precisa — cabendo tudo, o flex nem mostra barra de
+   rolagem e fica idêntico a uma tabela única. */
 function renderSplitTable(cfg){
   const root=document.getElementById(cfg.id); if(!root) return;
+  const wrap=root.closest('.tbl-wrap');
   const sortState=STATE.sort[cfg.id];
   let rows=cfg.rows.slice();
   if(sortState){ const {key,dir}=sortState; const c=cfg.cols.find(x=>x.key===key);
@@ -294,17 +308,32 @@ function renderSplitTable(cfg){
     }).join('')+'</tr></tfoot>'; }
     return `<table class="dt${cfg.center?' dt-center':''}" style="width:${totalW}px">${colgroup}${thead}${tbody}${tfoot}</table>`;
   }
+  // altura de cada seção = a mesma altura máxima do .tbl-wrap ancestral
+  // (tbl-normal/tbl-double/inline) — rolam juntas dentro do mesmo limite
+  // visual de sempre, sem precisar que o .tbl-wrap role por fora.
+  const maxH=wrap?parseFloat(getComputedStyle(wrap).maxHeight):NaN;
+  const hStyle=isFinite(maxH)?` style="max-height:${maxH}px"`:'';
   // troca a própria tag por <div> (um <table> não pode ter <div> como filho —
   // o parser HTML descarta; outerHTML recria o nó com a tag certa). Funciona
   // tanto na 1ª renderização (raiz ainda é a <table> do template) quanto nas
   // seguintes (raiz já é a <div class="dt-split"> da renderização anterior).
   root.outerHTML =
     `<div id="${cfg.id}" class="dt-split">`+
-      `<div class="dt-split-fixed dt-split-l">${section(leftCols)}</div>`+
-      `<div class="dt-split-scroll">${section(midCols)}</div>`+
-      `<div class="dt-split-fixed dt-split-r">${section(rightCols)}</div>`+
+      `<div class="dt-split-fixed dt-split-l"${hStyle}>${section(leftCols)}</div>`+
+      `<div class="dt-split-scroll"${hStyle}>${section(midCols)}</div>`+
+      `<div class="dt-split-fixed dt-split-r"${hStyle}>${section(rightCols)}</div>`+
     `</div>`;
   const fresh=document.getElementById(cfg.id);
+  // as 3 seções rolam verticalmente cada uma por conta própria (CSS acima) —
+  // sincroniza scrollTop entre elas pra se comportarem como 1 tabela só,
+  // não importa sobre qual seção o mouse rolou.
+  const secs=[...fresh.querySelectorAll('.dt-split-l, .dt-split-scroll, .dt-split-r')];
+  let syncing=false;
+  secs.forEach(el=>el.addEventListener('scroll',()=>{
+    if(syncing) return; syncing=true;
+    secs.forEach(o=>{ if(o!==el) o.scrollTop=el.scrollTop; });
+    requestAnimationFrame(()=>{ syncing=false; });
+  }));
   // sort: clicar em QUALQUER cabeçalho (das 3 tabelas) reordena as 3 juntas
   fresh.querySelectorAll('thead th').forEach(th=>{
     th.addEventListener('click',e=>{ if(e.target.classList.contains('rsz'))return;
@@ -943,10 +972,10 @@ function renderMeta(){
 
   // hierarquia — cada tabela vem do escopo que exclui a PRÓPRIA dimensão,
   // então todas as linhas irmãs continuam visíveis para multi-seleção (Ctrl).
-  // band:'l' (dim+Gasto) / band:'r' (MQLs em diante, intervalo fechado) só
-  // entram em ação (freeze) quando a tabela não cabe 100% sem rolar — ver
-  // renderSplitTable. Cabendo tudo, o flex nem mostra scroll e fica idêntico
-  // a uma tabela única.
+  // band:'l' (dim+Gasto) / band:'r' (MQLs em diante, intervalo fechado) ficam
+  // grudados nas bordas (applyBandOffsets); cabendo tudo sem estourar a
+  // largura do card, não aparece scroll nenhum e fica idêntico a uma tabela
+  // única, cabeçalho incluso.
   const hcols=[
     {key:'dim',label:'',type:'dim',big:true,band:'l'},{key:'gasto',label:'Gasto',type:'brl',band:'l'},
     {key:'cpm',label:'CPM',type:'brl'},
