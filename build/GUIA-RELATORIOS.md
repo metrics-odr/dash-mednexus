@@ -296,12 +296,23 @@ redige; o resto é só template preenchido.
 
 ### Quadrante 4 — Ações priorizadas (`quadro4_acoes`)
 
-**Abre SEMPRE com o "Veredito por estrutura" (obrigatório).** O gestor pediu
-explicitamente: *toda* campanha, *todo* conjunto e *todo* anúncio com gasto no
-período recebe **um** veredito entre cinco — **Cortar · Otimizar · Observar ·
-Manter · Escalar** — e nenhuma estrutura pode ser silenciosamente omitida.
-Percorra `por_campanha`, depois `por_conjunto`, depois `por_anuncio`
-(consultando `criativos_consolidado` para o mesmo criativo em várias
+**Abre SEMPRE com o "Veredito por estrutura" (obrigatório).** Toda campanha,
+conjunto e anúncio com **gasto relevante no período** recebe **um** veredito
+entre cinco — **Cortar · Otimizar · Observar · Manter · Escalar**.
+
+**ESCOPO (para o texto não explodir e focar no que importa):** dê veredito
+individual apenas às estruturas com **gasto ≥ `sample_min_spend`** (dos
+`params`) OU, se sobrar muita coisa, às **10 de maior gasto** de cada nível.
+Todo o resto (estruturas antigas/residuais com gasto irrelevante, típicas do
+período "todo") **NÃO recebe veredito individual** — resuma em **uma única
+linha coletiva** ao fim de cada `<ul>`, ex.: `<li><b>Observar</b> — outras N
+estruturas com gasto residual (&lt; R$ X somados), legado sem atividade
+relevante; sem veredito individual até voltarem a receber verba.</li>`. Nunca
+liste dezenas de estruturas mortas uma a uma. Priorize profundidade nas ~10
+que concentram a verba, não cobertura exaustiva do histórico.
+
+Percorra `por_campanha`, depois `por_conjunto`, depois `por_anuncio` (ordenados
+por gasto; consultando `criativos_consolidado` para o mesmo criativo em várias
 estruturas). Formato: um `<h4>Veredito por estrutura</h4>` seguido de 3 `<ul>`
 (Campanhas / Conjuntos / Anúncios), cada item = **tag + nome completo (nunca
 abreviado) + números que justificam + 1 frase de razão**. Exemplos de item:
