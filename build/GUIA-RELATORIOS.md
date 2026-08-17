@@ -294,9 +294,44 @@ redige; o resto é só template preenchido.
 
 ### Quadrante 4 — Ações priorizadas (`quadro4_acoes`)
 
-Listas separadas, cada uma um `<h4>` + `<ul>` (ou `<p>` se vazia): **Fazer
-hoje** · **Escalar** · **Manter** · **Observar** · **Otimizar/investigar** ·
-**Cortar** · **Produzir/testar** · **Evitar** · **Próxima revisão**. Regras:
+**Abre SEMPRE com o "Veredito por estrutura" (obrigatório).** O gestor pediu
+explicitamente: *toda* campanha, *todo* conjunto e *todo* anúncio com gasto no
+período recebe **um** veredito entre cinco — **Cortar · Otimizar · Observar ·
+Manter · Escalar** — e nenhuma estrutura pode ser silenciosamente omitida.
+Percorra `por_campanha`, depois `por_conjunto`, depois `por_anuncio`
+(consultando `criativos_consolidado` para o mesmo criativo em várias
+estruturas). Formato: um `<h4>Veredito por estrutura</h4>` seguido de 3 `<ul>`
+(Campanhas / Conjuntos / Anúncios), cada item = **tag + nome completo (nunca
+abreviado) + números que justificam + 1 frase de razão**. Exemplos de item:
+
+- `<li><span class="tag escala">Escalar</span> <b>[campanha completa]</b> — CPMQL R$ X (meta R$ Y), Tx-MQL Z%, N MQLs/14d, tendência de queda no custo 3d seguidos. Melhor eficiência com amostra: subir orçamento no nível do conjunto/campanha (confirmar ABO/CBO no Gerenciador) +15%.</li>`
+- `<li><span class="tag corte">Cortar</span> <b>[conjunto completo]</b> — CPMQL R$ X = +48% acima da meta há N dias, gasto relevante, 0–1 MQL. Custo insustentável com amostra suficiente.</li>`
+- `<li><span class="tag observar">Observar</span> <b>[anúncio completo] (campanha · conjunto)</b> — só R$ X de gasto / N cliques, sem amostra. Falta: +M MQLs ou +K dias para decidir.</li>`
+- Manter (sem tag própria no CSS — use `<b>Manter</b>`): `<li><b>Manter</b> <b>[estrutura]</b> — dentro da meta e estável em 7/14/30d; sem motivo para mexer.</li>`
+
+Régua dos cinco vereditos (aplique o **diagnóstico probabilístico** do
+`GUIA-INTERPRETACAO-METRICAS.md` — nunca uma métrica isolada):
+
+- **Escalar** — eficiência comprovada **com amostra** (CPMQL/CAC ≤ meta ou
+  melhor que a média da conta) **e** consistente em mais de uma janela
+  (não só "hoje"). Diz o incremento (+10–20% a cada 3–4 dias).
+- **Manter** — dentro da meta e estável; mexer só adiciona risco. Sem ação.
+- **Otimizar** — resultado final ok mas há gargalo claro numa etapa (ex.: bom
+  volume de MQL, CPMQL subindo por Tx-MQL caindo) → aponte a etapa e a
+  verificação prática, não "melhore o CAC".
+- **Observar** — sem amostra suficiente (gasto/cliques/MQLs abaixo do mínimo)
+  **ou** sinal recente ainda imaturo. Diga o que falta para virar decisão.
+- **Cortar** — custo pior que a meta/teto **com amostra suficiente e por N dias
+  seguidos**. **Sem meta definida (`meta_cpmql`/`meta_cac` = null) não existe
+  "Cortar" por custo** — rebaixe para Observar/Otimizar e explique que falta
+  meta. Corte por criativo é por **ocorrência** (não global de um criativo
+  vencedor em outras estruturas).
+
+Depois do veredito, as listas de ação (cada uma `<h4>` + `<ul>`, ou `<p>` se
+vazia): **Fazer hoje** · **Escalar** · **Manter** · **Observar** ·
+**Otimizar/investigar** · **Cortar** · **Produzir/testar** · **Evitar** ·
+**Próxima revisão** — são a *priorização executável* dos vereditos acima (o que
+fazer primeiro), não uma segunda classificação. Regras:
 
 - Toda entrada de Escalar/Manter/Otimizar/Cortar cita a **campanha e o
   conjunto completos**, e o **nível certo de orçamento**: em **ABO** o ajuste
@@ -423,3 +458,61 @@ processado, quando disponível), não regenere o relatório do dia.
   gerações.
 - Se o arquivo não existir ou vier vazio (como no template), a aba mostra
   tudo menos os Insights (cards/tabelas seguem funcionando).
+
+## Banco de tom e raciocínio (imite esta voz)
+
+Escreva como **gestor de tráfego experiente conversando com outro gestor**:
+frases diretas, decisão no fim, zero jargão desnecessário, e **sempre** a
+lógica probabilística — ligue a métrica em questão à etapa anterior e à
+posterior antes de concluir. Os padrões abaixo (destilados dos exemplos reais
+do cliente) são o alvo de estilo; adapte aos números do período, nunca copie
+literalmente nem invente estrutura que não está nos dados.
+
+- **CTR baixo pode ser bom.** "O CTR do anúncio X está abaixo da média, mas a
+  Tx-MQL, o CPMQL e as vendas estão saudáveis. O CTR menor indica comunicação
+  mais qualificadora, que filtra curiosos. Não vejo problema — manter."
+- **Movimento generalizado ≠ problema de estrutura.** "O CPM subiu ~20% na
+  maioria das campanhas. Alta generalizada = leilão mais caro (sazonalidade/
+  concorrência), não um criativo específico. Se CPMQL/CAC/ROAS seguem
+  saudáveis, não mexer agora."
+- **CPL é efeito, não causa.** "O CPL da campanha X está abaixo da média, mas
+  a Tx-MQL é muito inferior às demais: leads baratos e pouco qualificados. Não
+  escalar pelo CPL — revisar criativo, segmentação e perguntas do formulário."
+  E o inverso: "CPL acima da média, porém melhor Tx-MQL e menor CPMQL — o custo
+  maior é compensado pela qualidade. CPL alto não é gargalo aqui."
+- **CPMQL subindo: separe custo de qualidade.** "CPMQL da campanha X sobe há 3
+  dias. O CPL ficou estável e a Tx-MQL caiu — o problema é qualidade do lead,
+  não custo de captação. Revisar criativos/públicos que passaram a receber mais
+  verba."
+- **Baixo CPMQL isolado não autoriza escala.** "Conjunto XPTO tem CPMQL abaixo
+  da média, mas ainda sem vendas/etapas posteriores confirmando qualidade. Bom
+  custo inicial não basta — observar avanço comercial antes de escalar."
+  Contraste: "Conjunto com CPMQL baixo **e** etapas posteriores confirmando
+  qualidade → escalar +~20% e acompanhar se o volume se mantém sem deteriorar."
+- **Tendência de custo caindo + amostra → candidato a escala estruturada.**
+  "Anúncios XYZ com CAC/CPMQL abaixo da média e caindo há 3 dias, rodando numa
+  campanha só. Vale testá-los numa estrutura de escala (ex.: CBO com os
+  melhores), **preservando os anúncios originais** para não perder histórico."
+- **Concentrar o diagnóstico.** "A piora está concentrada na campanha X; as
+  demais mantêm CTR/CPMQL/CAC estáveis. Atuar só na X — evitar mudança geral que
+  prejudica estrutura saudável." Versus generalizado: "Piora em praticamente
+  todas as estruturas ao mesmo tempo → menos provável ser 1 criativo/público;
+  verificar fatores gerais (formulário, CRM, critério de MQL, integrações)."
+- **Queda de volume por menos verba ≠ novo gargalo.** "MQLs caíram, mas CPL,
+  ConvForm e Tx-MQL seguem estáveis — é consequência direta da queda de
+  investimento, não uma quebra no funil."
+- **Escala com perda parcial de eficiência pode ser aceitável.** "Vendas
+  subiram e o CAC também. Ganho de escala com perda parcial de eficiência —
+  seguir escalando depende de margem, Ticket, ROAS e teto aceitável de CAC."
+- **Maturação em High Ticket.** "ROAS do período abaixo da meta, mas há MQLs
+  recentes ainda em atendimento e o ciclo é longo — parte da receita não foi
+  reconhecida. Avaliar por coorte antes de concluir deterioração."
+- **Gargalo de dado (obrigatório enquanto faltar fonte comercial).** Como este
+  cliente ainda não tem Agendamentos/Reuniões/Show Rate conectados, sempre que
+  o raciocínio depender dessas etapas, **não invente** — escreva que o dado
+  falta e que a leitura fica limitada até conectar a lista do comercial.
+
+Regra de ouro do tom: cada insight = **o que aconteceu → por que provavelmente
+→ o que fazer (ou por que não fazer nada)**. Se os dados não sustentam uma
+conclusão, diga isso — "não dá para afirmar ainda" é uma resposta válida e
+esperada.

@@ -10,11 +10,15 @@ Este template já foi configurado para a MedNexus (ver seções abaixo: fontes d
 dados, MQL, cruzamento de vendas, imposto, convenções de campanha). Detalhes
 de implementação ficam documentados inline em `build/build.py`/`build/app.js`.
 Pendências conhecidas, fora do escopo desta configuração inicial:
-- **Insights de Tráfego** (`build/GUIA-RELATORIOS.md`): contexto do funil ainda
-  não preenchido; `relatorios.json`/`relatorios_dados.json` seguem vazios. A
-  Routine do Claude que os gera precisa ser criada uma vez para este repo
-  (`create_trigger`, Claude Code Remote) quando o cliente quiser ativar essa
-  automação.
+- **Insights de Tráfego** (`build/GUIA-RELATORIOS.md`): contexto do funil já
+  preenchido e Routine diária **criada e ativa** (`trig_01SzEeMq9byxK3vDYYUryZbD`,
+  cron `59 2 * * *` UTC = 23h59 BRT — lê `relatorios_dados.json` + os 2 guias e
+  escreve `relatorios.json` na `main`, sem API da Anthropic). O `relatorios.json`
+  fica vazio até a 1ª execução com dados reais (o coletor `briefing.yml` roda
+  23h50 BRT no runner do Actions, que alcança a planilha; o sandbox do agente
+  não). Guia reforçado (ago/2026): Quadrante 4 agora exige **veredito por
+  estrutura** (todas as campanhas/conjuntos/anúncios com gasto → Cortar/Otimizar/
+  Observar/Manter/Escalar, justificado) + banco de tom.
 - **Agendamentos/Reuniões Realizadas**: sem fonte de dados (lista do comercial)
   — aparecem como "-" até existir essa planilha.
 
