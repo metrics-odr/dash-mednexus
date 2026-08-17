@@ -65,7 +65,9 @@ def totais_dict(a: dict) -> dict:
 
 
 def breakdown(meta: list[dict], leads: list[dict], start, end, dim: str, camp_filter=None) -> list[dict]:
-    """Agrega por campanha/conjunto/anúncio dentro do período, com série diária."""
+    """Agrega por campanha/conjunto/anúncio dentro do período (só métricas
+    agregadas — SEM série diária por estrutura, que inchava o arquivo). A série
+    diária existe apenas AGREGADA no nível do período (ver periodo_payload)."""
     def key_of(r):
         if dim == "camp":
             return r["camp"]
@@ -100,7 +102,6 @@ def breakdown(meta: list[dict], leads: list[dict], start, end, dim: str, camp_fi
             row["campanha"], row["conjunto"] = camp, adset
         else:
             row["campanha"], row["conjunto"], row["anuncio"] = camp, adset, ad
-        row["serie_diaria"] = daily_series(meta, leads, start, end, camp=camp, adset=adset, ad=ad)
         out.append(row)
     out.sort(key=lambda r: -r["spend"])
     return out
@@ -183,6 +184,13 @@ def periodo_payload(meta: list[dict], leads: list[dict], today, start, end, key,
     return {
         "range": {"start": start.strftime("%Y-%m-%d"), "end": end.strftime("%Y-%m-%d")},
         "totais": totais_dict(cur),
+        # Série diária AGREGADA do período (não por estrutura) — só a base p/ o
+        # Claude ver tendência geral (CPM subindo / Tx-MQL caindo N dias). Limitada
+        # aos últimos 60 dias com atividade p/ não inchar "todo período". A série
+        # por campanha/conjunto/anúncio foi REMOVIDA de propósito: ela respondia por
+        # ~75% do tamanho do arquivo (≈280k tokens) e ninguém a consome — o veredito
+        # por estrutura usa as métricas agregadas de por_campanha/conjunto/anuncio.
+        "serie_diaria": daily_series(meta, leads, start, end)[-60:],
         "nota_saude": saude,
         "whatsapp_numeros": whatsapp_numeros("", start, end, cur, saude),
         "comparativos": {

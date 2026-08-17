@@ -31,7 +31,9 @@ alcança `docs.google.com` (só o runner do GitHub Actions alcança):
    §7), variação métrica a métrica já filtrada por relevância
    (`comparativos.periodo_anterior.variacao`, só marca `material:true` acima
    dos limiares), quebra por campanha/conjunto/**ocorrência de anúncio**
-   (`por_anuncio`, chave campanha+conjunto+anúncio) com série diária, visão
+   (`por_anuncio`, chave campanha+conjunto+anúncio; só métricas agregadas, sem
+   série diária por estrutura — a série diária vem AGREGADA no nível do
+   período em `periodos.<chave>.serie_diaria`), visão
    **consolidada por criativo** (`criativos_consolidado` — mesmo anúncio em
    várias estruturas) e os **números já formatados do bloco WhatsApp**
    (`whatsapp_numeros`). Roda via `.github/workflows/briefing.yml` (1×/dia,
