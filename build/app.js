@@ -972,19 +972,18 @@ function renderMeta(){
 
   // hierarquia — cada tabela vem do escopo que exclui a PRÓPRIA dimensão,
   // então todas as linhas irmãs continuam visíveis para multi-seleção (Ctrl).
-  // band:'l' (dim+Gasto) / band:'r' (MQLs em diante, intervalo fechado) ficam
-  // grudados nas bordas (applyBandOffsets); cabendo tudo sem estourar a
-  // largura do card, não aparece scroll nenhum e fica idêntico a uma tabela
-  // única, cabeçalho incluso.
+  // band:'l' (dim+Gasto) fica grudado na borda esquerda; as demais colunas
+  // rolam horizontalmente juntas (band do meio) — cabendo tudo, não aparece
+  // scroll nenhum e fica idêntico a uma tabela única, cabeçalho incluso.
   const hcols=[
     {key:'dim',label:'',type:'dim',big:true,band:'l'},{key:'gasto',label:'Gasto',type:'brl',band:'l'},
     {key:'cpm',label:'CPM',type:'brl'},
     {key:'ctr',label:'CTR',type:'pct'},{key:'cr',label:'CR',type:'pct'},{key:'convlp',label:'ConvLP',type:'pct'},
     {key:'leads',label:'Leads',type:'int'},{key:'cpl',label:'CPL',type:'brl'},
     {key:'tx',label:'Tx‑MQL',type:'pct'},
-    {key:'mqls',label:'MQLs',type:'int',band:'r'},{key:'cpmql',label:'CPMQL',type:'brl',band:'r'},
-    {key:'convmql',label:'ConvMQL',type:'pct',band:'r'},{key:'vendas',label:'Vendas',type:'int',band:'r'},{key:'cac',label:'CAC',type:'brl',band:'r'},
-    {key:'fat',label:'Fat.',type:'brl',band:'r'},{key:'receita',label:'Receita',type:'brl',band:'r'},{key:'roas',label:'ROAS',type:'num',band:'r'},
+    {key:'mqls',label:'MQLs',type:'int'},{key:'cpmql',label:'CPMQL',type:'brl'},
+    {key:'convmql',label:'ConvMQL',type:'pct'},{key:'vendas',label:'Vendas',type:'int'},{key:'cac',label:'CAC',type:'brl'},
+    {key:'fat',label:'Fat.',type:'brl'},{key:'receita',label:'Receita',type:'brl'},{key:'roas',label:'ROAS',type:'num'},
   ];
   function hierRows(map){ return Object.entries(map).map(([k,a])=>{const d=derive(a),s=salesOf(a);
     return {k, cells:{dim:k,gasto:d.gasto,cpm:d.cpm,ctr:d.ctr,cr:d.cr,convlp:d.convlp,leads:a.leads,cpl:d.cpl,tx:d.tx,mqls:a.mqls,cpmql:d.cpmql,
