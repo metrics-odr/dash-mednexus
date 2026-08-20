@@ -72,8 +72,20 @@ primeira conversa). No navegador, `salesActive()` (`app.js`) filtra `sales[]`
 pela mesma data ativa que `leadsActive()`/`metaActive()`, e os três arrays
 (`fL`/`fM`/`fS`) se propagam juntos em `buildAgg`/`daily`/`totals`, acendendo
 o funil (Vendas/Faturamento/CAC/ROAS/Ticket) e as tabelas Top/Piores anúncios
-(que mostram **Receita** no lugar de TM). Telefone com compra mas sem nenhuma
-conversa correspondente não aparece (mesmo comportamento de sempre). **Não**
+(que mostram **Receita** no lugar de TM).
+
+**TODA venda entra na dash** (regra do cliente: "todas as vendas entram na
+Visão Geral; só as atribuídas ao Meta entram na aba de mídia paga"). O
+cruzamento Compradores × Conversas usa `canon_phone()` — **chave canônica** =
+DDD + últimos 8 dígitos, robusta a **DDI "55"** presente/ausente e ao **9º
+dígito** do celular (os telefones das duas abas vinham em formatos diferentes,
+o que fazia ~75% das vendas não baterem e **sumirem** — bug corrigido). Quando
+o telefone bate com uma conversa, a venda recebe camp/adset/ad daquela conversa
+(atribuição do anúncio de origem). Quando **não** bate (compra por outro canal,
+ou telefone divergente que a canonicalização não cobre), a venda **ainda conta
+nos totais/Visão Geral**, porém como `(sem campanha)` / `src="org"` — some
+apenas da quebra por campanha do Meta, nunca dos totais. `log_unmatched_sales()`
+loga no build (stderr) quantas vendas ficaram sem anúncio de origem. **Não**
 usa as colunas `Compra Detectada` / `Faturamento Detectado` já calculadas na
 planilha (decisão do cliente: cruzar
 do zero, mais robusto a erro de fórmula na planilha).
