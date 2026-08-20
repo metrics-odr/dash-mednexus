@@ -255,15 +255,42 @@ def log_unmatched_sales(sales_index, phone_attrib):
     telefone não bate com NENHUMA conversa da aba Conversas — por design essas
     vendas não entram em sales[] (ver CLAUDE.md "Vendas & Faturamento"). Ajuda a
     achar rápido se é telefone diferente entre checkout/WhatsApp ou compra sem
-    conversa mesmo, sem precisar abrir a planilha manualmente."""
+    conversa mesmo, sem precisar abrir a planilha manualmente.
+
+    Além da lista simples, testa um match "frouxo" pelos ÚLTIMOS 8 DÍGITOS (que
+    sobrevive a diferenças de DDI "55" e ao "9º dígito" do celular — os 2
+    motivos mais comuns de telefone "igual" não bater quando normalizado só
+    por dígitos) e imprime um histograma de tamanho (nº de dígitos) dos dois
+    lados, pra apontar rápido se o padrão é sistemático (ex.: Compradores
+    sempre com DDI, Conversas sempre sem)."""
     unmatched = [(phone, p) for phone, purchases in sales_index.items()
                  if phone not in phone_attrib for p in purchases]
     if not unmatched:
         return
+    conv_by_last8: dict[str, list[str]] = {}
+    for cphone in phone_attrib:
+        conv_by_last8.setdefault(cphone[-8:], []).append(cphone)
+
+    def hist(phones):
+        c: dict[int, int] = {}
+        for ph in phones:
+            c[len(ph)] = c.get(len(ph), 0) + 1
+        return ", ".join(f"{n}d:{qt}" for n, qt in sorted(c.items()))
+
     print(f"  AVISO: {len(unmatched)} compra(s) sem conversa correspondente (não aparecem na dash):", file=sys.stderr)
+    print(f"    tamanho (nº dígitos) telefones Compradores: {hist(p for p, _ in unmatched)}", file=sys.stderr)
+    print(f"    tamanho (nº dígitos) telefones Conversas   : {hist(phone_attrib.keys())}", file=sys.stderr)
+    loose_hits = 0
     for phone, p in unmatched:
-        print(f"    - {p['d'] or '?'}  {first_last_initial(p['nm'])}  tel …{phone[-4:] if len(phone) >= 4 else phone}",
+        cands = conv_by_last8.get(phone[-8:]) if len(phone) >= 8 else None
+        if cands:
+            loose_hits += 1
+        tag = f"  ~bate por últimos 8 díg. com {cands[0][:-8] or '(nada)'}+{cands[0][-8:]} (Conversas)" if cands else ""
+        print(f"    - {p['d'] or '?'}  {first_last_initial(p['nm'])}  tel {phone} ({len(phone)}d){tag}",
               file=sys.stderr)
+    if loose_hits:
+        print(f"    -> {loose_hits}/{len(unmatched)} bateriam com um match por últimos 8 dígitos "
+              f"(forte indício de DDI/9º dígito divergente entre as abas)", file=sys.stderr)
 
 
 # --------------------------------------------------------------------------- #
