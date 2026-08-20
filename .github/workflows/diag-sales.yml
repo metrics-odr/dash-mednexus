@@ -1,0 +1,26 @@
+name: Diagnostico vendas nao casadas
+
+# Workflow temporario/manual: roda build.py (sem publicar no Pages) so para ver
+# no log quais compras da aba Compradores nao tem conversa correspondente na
+# aba Conversas (AVISO impresso por build/build.py). Nao mexe no ambiente
+# github-pages nem precisa de permissao de deploy.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build dashboard (le as planilhas via CSV publico, somente leitura)
+        run: python build/build.py --out /tmp/index.html
