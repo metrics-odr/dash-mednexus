@@ -219,17 +219,20 @@ def cell(row, i):
 # Compradores ("New Subscriptions") -> indice por telefone
 # --------------------------------------------------------------------------- #
 def build_sales_index(sales_rows):
-    """Le a aba de Compradores e devolve {telefone_normalizado: [{"d":..,"fat":..,"receita":..}, ...]},
+    """Le a aba de Compradores e devolve {telefone_normalizado: [{"d":..,"fat":..,"receita":..,"nm":..}, ...]},
     UMA ENTRADA POR LINHA de compra (nao agregada por telefone). Cruzamento é por
     TELEFONE (a Conversas não tem e-mail; o Lead LP antigo tem e-mail mas está fora
     do escopo principal deste dashboard). Mantemos cada compra separada — com sua
     própria data — para atribuir a venda ao dia em que ela REALMENTE aconteceu,
-    em vez de empilhar todo o histórico de compras do telefone num único dia."""
+    em vez de empilhar todo o histórico de compras do telefone num único dia.
+    "nm" (nome, sem mascara) fica só p/ diagnóstico de telefone não casado
+    (log_unmatched_sales) — nunca é exportado em sales[]/DATA."""
     header = sales_rows[0] if sales_rows else []
     idx = header_index(
         header,
-        {"phone": ["telefone"], "date": ["data"], "faturamento": ["faturamento"], "receita": ["receita"]},
-        {"phone": 3, "date": 0, "faturamento": 6, "receita": 7},
+        {"phone": ["telefone"], "date": ["data"], "faturamento": ["faturamento"], "receita": ["receita"],
+         "name": ["nome"]},
+        {"phone": 3, "date": 0, "faturamento": 6, "receita": 7, "name": 1},
     )
     out: dict[str, list] = {}
     for row in sales_rows[1:]:
@@ -242,8 +245,25 @@ def build_sales_index(sales_rows):
             "d": parse_date(cell(row, idx["date"])),
             "fat": to_float(cell(row, idx["faturamento"])),
             "receita": to_float(cell(row, idx["receita"])),
+            "nm": cell(row, idx["name"]),
         })
     return out
+
+
+def log_unmatched_sales(sales_index, phone_attrib):
+    """Diagnóstico (stderr, não afeta a saída): compras da aba Compradores cujo
+    telefone não bate com NENHUMA conversa da aba Conversas — por design essas
+    vendas não entram em sales[] (ver CLAUDE.md "Vendas & Faturamento"). Ajuda a
+    achar rápido se é telefone diferente entre checkout/WhatsApp ou compra sem
+    conversa mesmo, sem precisar abrir a planilha manualmente."""
+    unmatched = [(phone, p) for phone, purchases in sales_index.items()
+                 if phone not in phone_attrib for p in purchases]
+    if not unmatched:
+        return
+    print(f"  AVISO: {len(unmatched)} compra(s) sem conversa correspondente (não aparecem na dash):", file=sys.stderr)
+    for phone, p in unmatched:
+        print(f"    - {p['d'] or '?'}  {first_last_initial(p['nm'])}  tel …{phone[-4:] if len(phone) >= 4 else phone}",
+              file=sys.stderr)
 
 
 # --------------------------------------------------------------------------- #
@@ -325,6 +345,8 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
                 "fat": round(p["fat"], 2),
                 "receita": round(p["receita"], 2),
             })
+
+    log_unmatched_sales(sales_index, phone_attrib)
 
     mheader = meta_rows[0] if meta_rows else []
     midx = header_index(
