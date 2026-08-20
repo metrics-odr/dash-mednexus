@@ -177,6 +177,27 @@ def norm_phone(p: str) -> str:
     return re.sub(r"\D", "", p or "")
 
 
+def canon_phone(p: str) -> str:
+    """Chave CANÔNICA de telefone p/ cruzar Compradores × Conversas, robusta às
+    3 variações que faziam o mesmo número não bater quando comparado só por
+    dígitos (norm_phone):
+      - DDI "55" presente de um lado e ausente do outro
+        (5511988887777 vs 11988887777);
+      - 9º dígito do celular presente/ausente
+        (11988887777 vs 1188887777);
+      - máscara/espacos/parênteses (já removidos por norm_phone).
+    Estratégia: remove o DDI 55 (quando sobra DDD+número) e usa DDD (2 díg.) +
+    ÚLTIMOS 8 DÍGITOS — que é o mesmo com ou sem o 9. Devolve chave de 10 díg.
+    (DDD+8). Números curtos/estrangeiros (< 10 díg. após limpar) voltam como
+    estão, pra não colidir à toa."""
+    d = norm_phone(p)
+    if len(d) > 11 and d.startswith("55"):
+        d = d[2:]            # tira DDI do Brasil, sobrando DDD + local
+    if len(d) >= 10:
+        return d[:2] + d[-8:]   # DDD + últimos 8 (drop do 9º dígito, se houver)
+    return d
+
+
 def first_last_initial(name: str) -> str:
     parts = (name or "").strip().split()
     if not parts:
@@ -252,15 +273,21 @@ def build_sales_index(sales_rows):
 
 def log_unmatched_sales(sales_index, phone_attrib):
     """Diagnóstico (stderr, não afeta a saída): compras da aba Compradores cujo
-    telefone não bate com NENHUMA conversa da aba Conversas — por design essas
-    vendas não entram em sales[] (ver CLAUDE.md "Vendas & Faturamento"). Ajuda a
-    achar rápido se é telefone diferente entre checkout/WhatsApp ou compra sem
-    conversa mesmo, sem precisar abrir a planilha manualmente."""
+    telefone não bate com NENHUMA conversa da aba Conversas MESMO após a
+    canonicalização (canon_phone, que já cobre DDI "55" e o 9º dígito do
+    celular). Essas vendas AGORA entram na dash mesmo assim (contam nos totais /
+    Visão Geral), só ficam SEM atribuição de anúncio ("(sem campanha)") — este
+    log serve pra dimensionar quanta receita fica sem origem e conferir se é
+    compra por outro canal (esperado) ou algum telefone ainda divergente."""
+    matched = sum(1 for phone in sales_index if canon_phone(phone) in phone_attrib)
     unmatched = [(phone, p) for phone, purchases in sales_index.items()
-                 if phone not in phone_attrib for p in purchases]
+                 if canon_phone(phone) not in phone_attrib for p in purchases]
+    print(f"  vendas atribuídas a anúncio: {matched}/{len(sales_index)} telefones "
+          f"(cruzamento canônico Compradores × Conversas)", file=sys.stderr)
     if not unmatched:
         return
-    print(f"  AVISO: {len(unmatched)} compra(s) sem conversa correspondente (não aparecem na dash):", file=sys.stderr)
+    print(f"  {len(unmatched)} compra(s) SEM anúncio de origem (entram nos totais como \"(sem campanha)\"):",
+          file=sys.stderr)
     for phone, p in unmatched:
         print(f"    - {p['d'] or '?'}  {first_last_initial(p['nm'])}  tel …{phone[-4:] if len(phone) >= 4 else phone}",
               file=sys.stderr)
@@ -300,7 +327,7 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
         campaign_raw = cell(row, cidx["campaign"])
         campaign_valid = valid_utm(campaign_raw)
         src = "meta" if campaign_valid else "org"
-        phone = norm_phone(cell(row, cidx["phone"]))
+        phone = canon_phone(cell(row, cidx["phone"]))
         camp = campaign_raw if campaign_valid else "(sem campanha)"
         adset = cell(row, cidx["adset"]) if campaign_valid else "(sem conjunto)"
         ad = cell(row, cidx["ad"]) if campaign_valid else "(sem anúncio)"
@@ -326,14 +353,19 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
         })
 
     # Vendas: um registro POR COMPRA (nunca agregada por telefone), na data real
-    # da compra; camp/adset/ad vem da 1a conversa daquele telefone (phone_attrib).
-    # Telefone sem conversa correspondente na aba Conversas nao aparece (mesmo
-    # comportamento de antes: so contamos vendas cruzadas com um contato conhecido).
+    # da compra. TODA venda entra (aparece na Visão Geral e nos totais) — decisão
+    # do cliente: "todas as vendas entram na Geral, só as atribuídas ao Meta
+    # entram no Meta". camp/adset/ad vem da 1a conversa daquele telefone
+    # (phone_attrib, cruzado pela chave canônica canon_phone). Quando NÃO há
+    # conversa correspondente (comprou por outro canal, ou o telefone do checkout
+    # difere do WhatsApp de um jeito que a canonicalização não cobre), a venda
+    # ainda conta, porém SEM atribuição de anúncio: cai em "(sem campanha)" /
+    # src="org" — some da quebra por campanha do Meta, mas nunca dos totais.
     sales = []
+    NO_ATTRIB = {"src": "org", "camp": "(sem campanha)", "adset": "(sem conjunto)",
+                 "ad": "(sem anúncio)", "d": None}
     for phone, purchases in sales_index.items():
-        attrib = phone_attrib.get(phone)
-        if not attrib:
-            continue
+        attrib = phone_attrib.get(canon_phone(phone)) or NO_ATTRIB
         for p in purchases:
             sales.append({
                 "d": p["d"] or attrib["d"],
