@@ -144,10 +144,13 @@ function autoColWidth(cfg,c){
   return Math.max(60, Math.min(260, Math.round(max)+24));
 }
 function colWidth(cfg,c){ const saved=(STATE.colw[cfg.id]||{})[c.key];
+  // dimensão nunca trunca: mesmo com largura salva (redimensionada à mão numa
+  // sessão anterior), nunca fica MENOR que o necessário p/ caber o nome mais
+  // longo de agora — senão um nome novo/maior que o salvo volta a cortar com "…".
+  if(c.type==='dim'){ const auto=autoDimWidth(cfg,c); return saved?Math.max(saved,auto):auto; }
   if(saved) return saved;
   if(c.w) return c.w;
   if(c.type==='date') return 96;
-  if(c.type==='dim') return autoDimWidth(cfg,c);   // por padrão, cabe o nome inteiro
   if(c.type==='brl') return 110;   // "R$ 1.487,42" não cabia nos 92px padrão (cortava com "…")
   return 92; }
 function renderTable(cfg){
@@ -324,6 +327,20 @@ function renderSplitTable(cfg){
       `<div class="dt-split-fixed dt-split-r"${hStyle}>${section(rightCols)}</div>`+
     `</div>`;
   const fresh=document.getElementById(cfg.id);
+  // hover sincronizado: passar o mouse em QUALQUER seção (esquerda/meio/direita)
+  // acende a linha correspondente (mesmo índice) nas 3 — senão o :hover nativo
+  // só pega a seção sob o cursor, e visualmente parece que só um pedaço da
+  // linha "existe" (ver CSS .dt-split table.dt tbody tr:hover desativado).
+  const bodyRows=['.dt-split-l','.dt-split-scroll','.dt-split-r'].map(sel=>{
+    const t=fresh.querySelector(sel+' table.dt'); return t?[...t.querySelectorAll('tbody tr')]:[];
+  });
+  rows.forEach((r,i)=>{
+    const trio=bodyRows.map(trs=>trs[i]).filter(Boolean);
+    trio.forEach(tr=>{
+      tr.addEventListener('mouseenter',()=>trio.forEach(t=>t.classList.add('hover-row')));
+      tr.addEventListener('mouseleave',()=>trio.forEach(t=>t.classList.remove('hover-row')));
+    });
+  });
   // as 3 seções rolam verticalmente cada uma por conta própria (CSS acima) —
   // sincroniza scrollTop entre elas pra se comportarem como 1 tabela só,
   // não importa sobre qual seção o mouse rolou.
