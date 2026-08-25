@@ -134,7 +134,7 @@ function autoDimWidth(cfg,c){
   let max=textWidth(c.label||'',FONT_HEAD);
   (cfg.rows||[]).forEach(r=>{ const w=textWidth(fmtStd(c.type,r.cells[c.key]),FONT_DIM); if(w>max) max=w; });
   if(cfg.total && cfg.total[c.key]!=null){ const w=textWidth(fmtStd(c.type,cfg.total[c.key]),FONT_DIM); if(w>max) max=w; }
-  return Math.max(140, Math.min(640, Math.round(max)+34)); // + padding (10+10) + folga p/ seta de ordenação
+  return Math.max(140, Math.min(1000, Math.round(max)+34)); // + padding (10+10) + folga p/ seta de ordenação
 }
 function autoColWidth(cfg,c){
   if(c.type==='dim') return autoDimWidth(cfg,c);
