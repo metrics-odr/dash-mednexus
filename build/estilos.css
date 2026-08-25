@@ -301,6 +301,16 @@
   .dt-split-scroll::-webkit-scrollbar-thumb{background:var(--border); border-radius:999px}
   .dt-split-l table{border-right:1px solid var(--border)}
   .dt-split-r table{border-left:1px solid var(--border)}
+  /* ALINHAMENTO das 3 seções: altura de linha FIXA e inteira (px), igual em
+     todas. Sem isso a altura da linha fica fracionária (line-height:normal,
+     que varia com a métrica da fonte de cada seção) e o arredondamento em
+     tela acumula linha a linha — as bordas das seções saem de fase e a
+     tabela vira um "degrau". Com altura inteira idêntica, as 3 seções sempre
+     desenham a mesma linha na mesma altura. */
+  .dt-split table.dt th, .dt-split table.dt td{
+    box-sizing:border-box; height:31px; line-height:17px; padding-top:0; padding-bottom:0}
+  .dt-split table.dt thead th{height:31px}
+  .dt-split table.dt tfoot td{height:33px}
   /* hover da linha inteira nas 3 seções em sincronia — ver JS (renderSplitTable);
      desativa o :hover nativo (só pegaria a seção sob o cursor) em favor da
      classe .hover-row, aplicada às 3 ao mesmo tempo. */

@@ -327,6 +327,18 @@ function renderSplitTable(cfg){
       `<div class="dt-split-fixed dt-split-r"${hStyle}>${section(rightCols)}</div>`+
     `</div>`;
   const fresh=document.getElementById(cfg.id);
+  // A seção do meio é a única com barra de rolagem HORIZONTAL; essa barra come
+  // altura do scrollport dela (clientHeight menor). Se as seções fixas ficarem
+  // com o mesmo max-height, o rodapé sticky ("Total Geral") delas fica ~7px mais
+  // baixo que o do meio e o scroll vertical delas anda um pouco mais — as linhas
+  // saem de sincronia (o "degrau"). Descontamos a altura da barra das seções
+  // fixas p/ os 3 scrollports terem exatamente a mesma altura útil.
+  (function alignScrollports(){
+    const mid=fresh.querySelector('.dt-split-scroll'); if(!mid) return;
+    const sb=mid.offsetHeight-mid.clientHeight;   // altura da barra horizontal (0 se não houver)
+    if(!(sb>0) || !isFinite(maxH)) return;
+    fresh.querySelectorAll('.dt-split-fixed').forEach(el=>{ el.style.maxHeight=(maxH-sb)+'px'; });
+  })();
   // hover sincronizado: passar o mouse em QUALQUER seção (esquerda/meio/direita)
   // acende a linha correspondente (mesmo índice) nas 3 — senão o :hover nativo
   // só pega a seção sob o cursor, e visualmente parece que só um pedaço da
@@ -334,6 +346,27 @@ function renderSplitTable(cfg){
   const bodyRows=['.dt-split-l','.dt-split-scroll','.dt-split-r'].map(sel=>{
     const t=fresh.querySelector(sel+' table.dt'); return t?[...t.querySelectorAll('tbody tr')]:[];
   });
+  // trava de segurança do alinhamento: mesmo com a altura fixa do CSS, qualquer
+  // diferença de fração de pixel entre as seções (fonte diferente por SO, zoom
+  // do navegador) acumularia linha a linha e viraria "degrau". Aqui a altura
+  // REAL de cada linha é medida nas 3 seções e a maior (arredondada p/ cima,
+  // em pixel inteiro) é aplicada às 3 — as bordas ficam sempre na mesma altura.
+  (function lockRowHeights(){
+    const secs=bodyRows.filter(a=>a.length);
+    if(secs.length<2) return;
+    const n=Math.min(...secs.map(a=>a.length));
+    const hs=[]; for(let i=0;i<n;i++) hs.push(Math.ceil(Math.max(...secs.map(a=>a[i].getBoundingClientRect().height))));
+    for(let i=0;i<n;i++) secs.forEach(a=>{ a[i].style.height=hs[i]+'px'; });
+    // mesma trava p/ cabeçalho e rodapé (se um for 1px mais alto, TODAS as
+    // linhas daquela seção descem junto e a tabela inteira sai de sincronia)
+    ['thead tr','tfoot tr'].forEach(sel=>{
+      const els=[...fresh.querySelectorAll('.dt-split-l '+sel+', .dt-split-scroll '+sel+', .dt-split-r '+sel)]
+        .filter(tr=>tr.children.length);
+      if(els.length<2) return;
+      const h=Math.ceil(Math.max(...els.map(tr=>tr.getBoundingClientRect().height)));
+      els.forEach(tr=>{ tr.style.height=h+'px'; });
+    });
+  })();
   rows.forEach((r,i)=>{
     const trio=bodyRows.map(trs=>trs[i]).filter(Boolean);
     trio.forEach(tr=>{
