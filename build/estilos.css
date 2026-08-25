@@ -301,6 +301,11 @@
   .dt-split-scroll::-webkit-scrollbar-thumb{background:var(--border); border-radius:999px}
   .dt-split-l table{border-right:1px solid var(--border)}
   .dt-split-r table{border-left:1px solid var(--border)}
+  /* hover da linha inteira nas 3 seções em sincronia — ver JS (renderSplitTable);
+     desativa o :hover nativo (só pegaria a seção sob o cursor) em favor da
+     classe .hover-row, aplicada às 3 ao mesmo tempo. */
+  .dt-split table.dt tbody tr:hover{background:transparent}
+  .dt-split table.dt tbody tr.hover-row{background:var(--accent-blue-light)}
   .rel-adlink{font-size:12px; font-weight:600; color:var(--accent-blue); text-decoration:none; white-space:nowrap}
   .rel-adlink:hover{text-decoration:underline}
   .rel-adlink.off{color:var(--muted); font-weight:400}
