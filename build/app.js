@@ -319,11 +319,36 @@ function renderSplitTable(cfg){
   // seguintes (raiz já é a <div class="dt-split"> da renderização anterior).
   root.outerHTML =
     `<div id="${cfg.id}" class="dt-split">`+
-      `<div class="dt-split-fixed dt-split-l"${hStyle}>${section(leftCols)}</div>`+
+      (leftCols.length?`<div class="dt-split-fixed dt-split-l"${hStyle}>${section(leftCols)}</div>`:'')+
       `<div class="dt-split-scroll"${hStyle}>${section(midCols)}</div>`+
-      `<div class="dt-split-fixed dt-split-r"${hStyle}>${section(rightCols)}</div>`+
+      (rightCols.length?`<div class="dt-split-fixed dt-split-r"${hStyle}>${section(rightCols)}</div>`:'')+
     `</div>`;
   const fresh=document.getElementById(cfg.id);
+  // ALINHAMENTO DAS LINHAS ENTRE AS 3 SEÇÕES
+  // Só o miolo tem barra de rolagem HORIZONTAL. Em navegadores com barra
+  // clássica (Windows/Linux, e macOS com "mostrar sempre"), essa barra come
+  // altura do miolo (~7px, ver ::-webkit-scrollbar no CSS) e as seções fixas
+  // não perdem nada — o que desalinha tudo de duas formas:
+  //   1) o rodapé "Total Geral" (sticky bottom:0) do miolo sobe ~7px em
+  //      relação ao das seções fixas;
+  //   2) com rolagem vertical, o scrollTop máximo do miolo fica ~7px MENOR
+  //      que o das fixas, então ao chegar no fim as linhas escorregam entre
+  //      as seções (a sincronia de scrollTop não consegue igualar).
+  // Correção: medir a altura real da barra do miolo e devolvê-la às seções
+  // fixas como borda inferior transparente (box-sizing:border-box → a caixa
+  // não cresce, só o scrollport encolhe o mesmo tanto). Assim as 3 seções
+  // ficam com clientHeight/scrollTop idênticos em qualquer navegador — onde a
+  // barra é sobreposta (macOS/headless) a medida dá 0 e nada muda.
+  const midSec=fresh.querySelector('.dt-split-scroll');
+  const gutterSecs=[...fresh.querySelectorAll('.dt-split-fixed')];
+  const syncGutter=()=>{ if(!midSec) return;
+    const g=Math.max(0,midSec.offsetHeight-midSec.clientHeight);
+    gutterSecs.forEach(el=>{ el.style.borderBottom=g?`${g}px solid transparent`:''; });
+  };
+  syncGutter();
+  // a barra do miolo aparece/some conforme a largura disponível — reavalia
+  // sempre que a seção mudar de tamanho (resize da janela, sidebar etc.)
+  if(midSec && window.ResizeObserver){ new ResizeObserver(syncGutter).observe(midSec); }
   // as 3 seções rolam verticalmente cada uma por conta própria (CSS acima) —
   // sincroniza scrollTop entre elas pra se comportarem como 1 tabela só,
   // não importa sobre qual seção o mouse rolou.
@@ -331,7 +356,11 @@ function renderSplitTable(cfg){
   let syncing=false;
   secs.forEach(el=>el.addEventListener('scroll',()=>{
     if(syncing) return; syncing=true;
-    secs.forEach(o=>{ if(o!==el) o.scrollTop=el.scrollTop; });
+    // clampa no limite de CADA seção: se por qualquer motivo uma delas puder
+    // rolar menos que a outra, todas param juntas em vez de desalinhar.
+    const lim=Math.min(...secs.map(o=>Math.max(0,o.scrollHeight-o.clientHeight)));
+    const top=Math.min(el.scrollTop,lim);
+    secs.forEach(o=>{ if(o.scrollTop!==top) o.scrollTop=top; });
     requestAnimationFrame(()=>{ syncing=false; });
   }));
   // sort: clicar em QUALQUER cabeçalho (das 3 tabelas) reordena as 3 juntas
