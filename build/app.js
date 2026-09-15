@@ -28,6 +28,7 @@ const STATE = {
   page:'geral', from:(()=>{const [y,m]=TODAY.split('-'); return `${y}-${m}-01`;})(), to:TODAY, preset:'mes', tax:true,
   selDays:new Set(),
   mSelC:new Set(), mSelA:new Set(), mSelAd:new Set(),
+  mSearchC:'', mSearchA:'', mSearchD:'',
   sort:{}, colw: JSON.parse(localStorage.getItem('dm_colw')||'{}'),
 };
 const taxf = ()=> STATE.tax ? TAX : 1;
@@ -425,7 +426,8 @@ function renderSplitTable(cfg){
 }
 /* Heatmap por coluna: cor FIXA por métrica (definida em identidade-visual.css),
    só a OPACIDADE varia com o valor (maior valor = mais vibrante). */
-const HEAT_HUE={gasto:'--heat-gasto', leads:'--heat-leads', mqls:'--heat-mqls', roas:'--heat-roas', vendas:'--heat-vendas'};
+const HEAT_HUE={gasto:'--heat-gasto', leads:'--heat-leads', mqls:'--heat-mqls', roas:'--heat-roas', vendas:'--heat-vendas',
+  cpl:'--heat-cpl', cpmql:'--heat-cpmql', cac:'--heat-cac'};
 function heat(v,lo,hi,kind){
   if(v==null||!isFinite(v)||hi===lo||!HEAT_HUE[kind]) return 'transparent';
   const t=Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
@@ -956,6 +958,24 @@ function dailyCells(x,d,isTotal){
     convmql:s.convmql, vendas:s.vendas, cac:s.cac, fat:s.fat, receita:s.receita, roas:s.roas};
 }
 
+/* campo de busca + botão "Limpar filtro" de cada tabela hierárquica (Campanha/
+   Conjunto/Anúncio): busca filtra as LINHAS da própria tabela (substring no nome,
+   normalizado); "Limpar filtro" reseta a busca E a seleção cruzada (mSelC/A/Ad)
+   daquela dimensão. O botão fica "ativo" (cor de destaque) quando há busca OU
+   seleção aplicada, pra sinalizar que a tabela não está no estado padrão. */
+const TBL_TOOLS=[
+  {inId:'tCampSearch', btnId:'tCampClear', sKey:'mSearchC', selKey:'mSelC'},
+  {inId:'tAdsetSearch', btnId:'tAdsetClear', sKey:'mSearchA', selKey:'mSelA'},
+  {inId:'tAdSearch', btnId:'tAdClear', sKey:'mSearchD', selKey:'mSelAd'},
+];
+function updateTblToolsUI(){
+  TBL_TOOLS.forEach(sp=>{
+    const inp=document.getElementById(sp.inId), btn=document.getElementById(sp.btnId);
+    if(inp && inp.value!==STATE[sp.sKey]) inp.value=STATE[sp.sKey];
+    if(btn) btn.classList.toggle('active', !!STATE[sp.sKey] || !!STATE[sp.selKey].size);
+  });
+}
+
 /* ---------------- PAGE 2: Captura Meta Ads ---------------- */
 /* Mar04: considera TODOS os leads e TODO o gasto de todas as fontes de tráfego
    (sem filtrar por atribuição). Hoje só há Meta; quando vier google/tiktok/orgânico
@@ -1026,16 +1046,18 @@ function renderMeta(){
   // rolam horizontalmente juntas (band do meio) — cabendo tudo, não aparece
   // scroll nenhum e fica idêntico a uma tabela única, cabeçalho incluso.
   const hcols=[
-    {key:'dim',label:'',type:'dim',big:true,band:'l'},{key:'gasto',label:'Gasto',type:'brl',band:'l'},
+    {key:'dim',label:'',type:'dim',big:true,band:'l'},{key:'gasto',label:'Gasto',type:'brl',band:'l',heat:'gasto'},
     {key:'cpm',label:'CPM',type:'brl'},
     {key:'ctr',label:'CTR',type:'pct'},{key:'cr',label:'CR',type:'pct'},{key:'convlp',label:'ConvLP',type:'pct'},
-    {key:'leads',label:'Leads',type:'int'},{key:'cpl',label:'CPL',type:'brl'},
+    {key:'leads',label:'Leads',type:'int'},{key:'cpl',label:'CPL',type:'brl',heat:'cpl'},
     {key:'tx',label:'Tx‑MQL',type:'pct'},
-    {key:'mqls',label:'MQLs',type:'int'},{key:'cpmql',label:'CPMQL',type:'brl'},
-    {key:'convmql',label:'ConvMQL',type:'pct'},{key:'vendas',label:'Vendas',type:'int'},{key:'cac',label:'CAC',type:'brl'},
-    {key:'fat',label:'Fat.',type:'brl'},{key:'receita',label:'Receita',type:'brl'},{key:'roas',label:'ROAS',type:'num'},
+    {key:'mqls',label:'MQLs',type:'int'},{key:'cpmql',label:'CPMQL',type:'brl',heat:'cpmql'},
+    {key:'convmql',label:'ConvMQL',type:'pct'},{key:'vendas',label:'Vendas',type:'int'},{key:'cac',label:'CAC',type:'brl',heat:'cac'},
+    {key:'fat',label:'Fat.',type:'brl'},{key:'receita',label:'Receita',type:'brl'},{key:'roas',label:'ROAS',type:'num',heat:'roas'},
   ];
-  function hierRows(map){ return Object.entries(map).map(([k,a])=>{const d=derive(a),s=salesOf(a);
+  function hierRows(map,search){ return Object.entries(map)
+    .filter(([k])=>!search||norm(k).includes(norm(search)))
+    .map(([k,a])=>{const d=derive(a),s=salesOf(a);
     return {k, cells:{dim:k,gasto:d.gasto,cpm:d.cpm,ctr:d.ctr,cr:d.cr,convlp:d.convlp,leads:a.leads,cpl:d.cpl,tx:d.tx,mqls:a.mqls,cpmql:d.cpmql,
       convmql:s.convmql,vendas:s.vendas,cac:s.cac,fat:s.fat,receita:s.receita,roas:s.roas}};}); }
   function totRowOf(tt){const d=derive(tt),s=salesOf(tt);return{dim:null,gasto:d.gasto,cpm:d.cpm,ctr:d.ctr,cr:d.cr,convlp:d.convlp,leads:tt.leads,cpl:d.cpl,tx:d.tx,mqls:tt.mqls,cpmql:d.cpmql,
@@ -1045,12 +1067,13 @@ function renderMeta(){
   // Tabelas hierárquicas: NÃO usam "fit" — a dimensão (campanha/conjunto/anúncio)
   // tem largura automática p/ caber o nome INTEIRO por padrão, nunca quebra linha,
   // é redimensionável (arrastar borda) e 2 cliques na borda auto-ajusta (Sheets/Looker).
-  renderTable({id:'tCamp', cols:hcols.map((c,i)=>i===0?{...c,label:'Campanha'}:c), rows:hierRows(aggC), total:totRowOf(totals(Sc.fL,Sc.fM,Sc.fS)),
+  renderTable({id:'tCamp', cols:hcols.map((c,i)=>i===0?{...c,label:'Campanha'}:c), rows:hierRows(aggC,STATE.mSearchC), total:totRowOf(totals(Sc.fL,Sc.fM,Sc.fS)),
     selectable:true, selSet:STATE.mSelC, onSelect:(k,e)=>selDim('C',k,e&&(e.ctrlKey||e.metaKey))});
-  renderTable({id:'tAdset', cols:hcols.map((c,i)=>i===0?{...c,label:'Conjunto',big:true}:c), rows:hierRows(aggA), total:totRowOf(totals(Sa.fL,Sa.fM,Sa.fS)),
+  renderTable({id:'tAdset', cols:hcols.map((c,i)=>i===0?{...c,label:'Conjunto',big:true}:c), rows:hierRows(aggA,STATE.mSearchA), total:totRowOf(totals(Sa.fL,Sa.fM,Sa.fS)),
     selectable:true, selSet:STATE.mSelA, onSelect:(k,e)=>selDim('A',k,e&&(e.ctrlKey||e.metaKey))});
-  renderTable({id:'tAd', cols:hcols.map((c,i)=>i===0?{...c,label:'Anúncio'}:c), rows:hierRows(aggD), total:totRowOf(totals(Sd.fL,Sd.fM,Sd.fS)),
+  renderTable({id:'tAd', cols:hcols.map((c,i)=>i===0?{...c,label:'Anúncio'}:c), rows:hierRows(aggD,STATE.mSearchD), total:totRowOf(totals(Sd.fL,Sd.fM,Sd.fS)),
     selectable:true, selSet:STATE.mSelAd, onSelect:(k,e)=>selDim('D',k,e&&(e.ctrlKey||e.metaKey))});
+  updateTblToolsUI();
 
   // Mar03/Mar10: cada gráfico varia a dimensão da sua tabela — MQLs por dia, 1 linha
   // por membro, com legenda própria (cor · nome completo · CPMQL) e filtro bidirecional
@@ -1182,7 +1205,8 @@ document.getElementById('ppCancel').addEventListener('click',ppClose);
 document.getElementById('periodPop').addEventListener('click',e=>e.stopPropagation());
 document.addEventListener('click',()=>{ if(ppIsOpen()) ppClose(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&ppIsOpen()) ppClose(); });
-document.getElementById('clearBtn').addEventListener('click',()=>{ STATE.mSelC.clear();STATE.mSelA.clear();STATE.mSelAd.clear();STATE.selDays.clear(); applyPreset('mes'); });
+document.getElementById('clearBtn').addEventListener('click',()=>{ STATE.mSelC.clear();STATE.mSelA.clear();STATE.mSelAd.clear();STATE.selDays.clear();
+  STATE.mSearchC='';STATE.mSearchA='';STATE.mSearchD=''; applyPreset('mes'); });
 document.getElementById('refreshBtn').addEventListener('click',function(){ this.classList.add('loading'); location.href=location.pathname+'?t='+Date.now()+location.hash; });
 
 /* painel de Metas & parâmetros — edita ao vivo, salva em localStorage e recolore
@@ -1202,6 +1226,24 @@ document.getElementById('refreshBtn').addEventListener('click',function(){ this.
   if(rb) rb.addEventListener('click',()=>{ METAS.cpmql=METAS_DEFAULT.cpmql; METAS.cac=METAS_DEFAULT.cac; METAS.volMin=METAS_DEFAULT.volMin; METAS.nDias=METAS_DEFAULT.nDias;
     try{ localStorage.removeItem('dm_metas'); }catch(e){} syncMetasInputs(); if(STATE.page==='rel') renderRelAds(); });
   syncMetasInputs();
+})();
+
+/* busca + limpar filtro das 3 tabelas hierárquicas (Campanha/Conjunto/Anúncio) */
+(function wireMetaTableTools(){
+  const debTimers={};
+  TBL_TOOLS.forEach(sp=>{
+    const inp=document.getElementById(sp.inId), btn=document.getElementById(sp.btnId);
+    if(inp) inp.addEventListener('input',()=>{
+      STATE[sp.sKey]=inp.value;
+      clearTimeout(debTimers[sp.sKey]);
+      debTimers[sp.sKey]=setTimeout(()=>{ if(STATE.page==='meta') renderMeta(); },150);
+    });
+    if(btn) btn.addEventListener('click',()=>{
+      STATE[sp.sKey]=''; STATE[sp.selKey].clear();
+      if(inp) inp.value='';
+      if(STATE.page==='meta') renderMeta();
+    });
+  });
 })();
 
 document.getElementById('updated').innerHTML='Última atualização:<br>'+B.generated_at_brt+' (BRT)';
