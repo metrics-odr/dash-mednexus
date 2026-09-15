@@ -196,7 +196,7 @@ function renderTable(cfg){
     const sel = cfg.selectable && cfg.selSet && cfg.selSet.has(r.k);
     const tds=cfg.cols.map(c=>{
       const v=r.cells[c.key]; let bg='';
-      if(c.heat && ext[c.key]) bg=`background:${heat(v,ext[c.key][0],ext[c.key][1],c.heat)}`;
+      if(c.heat && ext[c.key]) bg=`background:${heat(v,ext[c.key][0],ext[c.key][1],c.heat,c.heatInv)}`;
       const cls=(c.type==='dim'?'dim':'')+(c.cls&&c.cls(r)?' '+c.cls(r):'')+stkCls(c);
       const ttl=c.type==='html'?'':` title="${esc(fmtStd(c.type,v))}"`;
       return `<td class="${cls}" style="${bg}"${ttl}>${fmt(c.type,v)}</td>`;
@@ -298,7 +298,7 @@ function renderSplitTable(cfg){
       const sel = cfg.selectable && cfg.selSet && cfg.selSet.has(r.k);
       const tds=cols.map(c=>{
         const v=r.cells[c.key]; let bg='';
-        if(c.heat && ext[c.key]) bg=`background:${heat(v,ext[c.key][0],ext[c.key][1],c.heat)}`;
+        if(c.heat && ext[c.key]) bg=`background:${heat(v,ext[c.key][0],ext[c.key][1],c.heat,c.heatInv)}`;
         const cls=(c.type==='dim'?'dim':'')+(c.cls&&c.cls(r)?' '+c.cls(r):'');
         const ttl=c.type==='html'?'':` title="${esc(fmtStd(c.type,v))}"`;
         return `<td class="${cls}" style="${bg}"${ttl}>${fmt(c.type,v)}</td>`;
@@ -428,9 +428,10 @@ function renderSplitTable(cfg){
    só a OPACIDADE varia com o valor (maior valor = mais vibrante). */
 const HEAT_HUE={gasto:'--heat-gasto', leads:'--heat-leads', mqls:'--heat-mqls', roas:'--heat-roas', vendas:'--heat-vendas',
   cpl:'--heat-cpl', cpmql:'--heat-cpmql', cac:'--heat-cac'};
-function heat(v,lo,hi,kind){
+function heat(v,lo,hi,kind,inv){
   if(v==null||!isFinite(v)||hi===lo||!HEAT_HUE[kind]) return 'transparent';
-  const t=Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
+  let t=Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
+  if(inv) t=1-t;   // métricas de custo (CPL/CPMQL/CAC): quanto MENOR, mais vibrante (melhor)
   const c=hx2rgb(cvar(HEAT_HUE[kind]));
   return `rgba(${c[0]},${c[1]},${c[2]},${(0.06+0.5*t).toFixed(3)})`;
 }
@@ -1049,10 +1050,10 @@ function renderMeta(){
     {key:'dim',label:'',type:'dim',big:true,band:'l'},{key:'gasto',label:'Gasto',type:'brl',band:'l',heat:'gasto'},
     {key:'cpm',label:'CPM',type:'brl'},
     {key:'ctr',label:'CTR',type:'pct'},{key:'cr',label:'CR',type:'pct'},{key:'convlp',label:'ConvLP',type:'pct'},
-    {key:'leads',label:'Leads',type:'int'},{key:'cpl',label:'CPL',type:'brl',heat:'cpl'},
+    {key:'leads',label:'Leads',type:'int'},{key:'cpl',label:'CPL',type:'brl',heat:'cpl',heatInv:true},
     {key:'tx',label:'Tx‑MQL',type:'pct'},
-    {key:'mqls',label:'MQLs',type:'int'},{key:'cpmql',label:'CPMQL',type:'brl',heat:'cpmql'},
-    {key:'convmql',label:'ConvMQL',type:'pct'},{key:'vendas',label:'Vendas',type:'int'},{key:'cac',label:'CAC',type:'brl',heat:'cac'},
+    {key:'mqls',label:'MQLs',type:'int'},{key:'cpmql',label:'CPMQL',type:'brl',heat:'cpmql',heatInv:true},
+    {key:'convmql',label:'ConvMQL',type:'pct'},{key:'vendas',label:'Vendas',type:'int'},{key:'cac',label:'CAC',type:'brl',heat:'cac',heatInv:true},
     {key:'fat',label:'Fat.',type:'brl'},{key:'receita',label:'Receita',type:'brl'},{key:'roas',label:'ROAS',type:'num',heat:'roas'},
   ];
   function hierRows(map,search){ return Object.entries(map)
