@@ -161,7 +161,14 @@
 
   /* Tables */
   .table-chart-pair{background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-top:16px}
-  .table-chart-pair .thead-title{padding:12px 15px 0; font-weight:600; font-size:14px}
+  .table-chart-pair .thead-title{padding:12px 15px 0; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap}
+  .tbl-tools{display:flex; align-items:center; gap:8px; font-weight:400}
+  .tbl-search{border:1px solid var(--border); border-radius:9px; padding:7px 11px; font-size:12.5px; background:var(--bg); color:var(--ink); width:190px; max-width:45vw}
+  .tbl-search::placeholder{color:var(--muted)}
+  .tbl-search:focus{outline:none; border-color:var(--accent-blue); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent-blue) 22%,transparent)}
+  .tbl-clear-btn{border:1px solid var(--border); background:var(--surface); color:var(--muted); border-radius:9px; padding:7px 11px; font-size:12.5px; cursor:pointer; white-space:nowrap}
+  .tbl-clear-btn:hover{border-color:var(--accent-blue); color:var(--ink)}
+  .tbl-clear-btn.active{border-color:var(--accent-blue); color:var(--accent-blue); background:color-mix(in srgb,var(--accent-blue) 10%,transparent)}
   .tbl-wrap{overflow:auto; position:relative; scrollbar-width:thin; scrollbar-color:var(--border) transparent}
   .tbl-wrap::-webkit-scrollbar{width:7px; height:7px}
   .tbl-wrap::-webkit-scrollbar-track{background:transparent}

@@ -112,7 +112,10 @@
 
         <h2 class="sec-title">Hierarquia · Campanha → Conjunto → Anúncio</h2>
         <div class="table-chart-pair">
-          <div class="thead-title">Campanhas</div>
+          <div class="thead-title"><span>Campanhas</span><div class="tbl-tools">
+            <input type="text" class="tbl-search" id="tCampSearch" placeholder="Buscar campanha...">
+            <button type="button" class="tbl-clear-btn" id="tCampClear">✕ Filtro</button>
+          </div></div>
           <div class="tbl-wrap tbl-normal"><table class="dt" id="tCamp"></table></div>
           <div class="pair-chart">
             <div class="pc-title">Custo por MQL, por campanha, por dia · clique numa linha ou na legenda para filtrar</div>
@@ -121,7 +124,10 @@
           </div>
         </div>
         <div class="table-chart-pair">
-          <div class="thead-title">Conjuntos (Ad Sets)</div>
+          <div class="thead-title"><span>Conjuntos (Ad Sets)</span><div class="tbl-tools">
+            <input type="text" class="tbl-search" id="tAdsetSearch" placeholder="Buscar conjunto...">
+            <button type="button" class="tbl-clear-btn" id="tAdsetClear">✕ Filtro</button>
+          </div></div>
           <div class="tbl-wrap tbl-normal"><table class="dt" id="tAdset"></table></div>
           <div class="pair-chart">
             <div class="pc-title">Custo por MQL, por conjunto, por dia · clique numa linha ou na legenda para filtrar</div>
@@ -130,7 +136,10 @@
           </div>
         </div>
         <div class="table-chart-pair">
-          <div class="thead-title">Anúncios</div>
+          <div class="thead-title"><span>Anúncios</span><div class="tbl-tools">
+            <input type="text" class="tbl-search" id="tAdSearch" placeholder="Buscar anúncio...">
+            <button type="button" class="tbl-clear-btn" id="tAdClear">✕ Filtro</button>
+          </div></div>
           <div class="tbl-wrap tbl-double"><table class="dt" id="tAd"></table></div>
           <div class="pair-chart">
             <div class="pc-title">Custo por MQL, por anúncio, por dia · clique numa linha ou na legenda para filtrar</div>
