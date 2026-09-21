@@ -429,9 +429,13 @@ function renderSplitTable(cfg){
 const HEAT_HUE={gasto:'--heat-gasto', leads:'--heat-leads', mqls:'--heat-mqls', roas:'--heat-roas', vendas:'--heat-vendas',
   cpl:'--heat-cpl', cpmql:'--heat-cpmql', cac:'--heat-cac'};
 function heat(v,lo,hi,kind,inv){
-  if(v==null||!isFinite(v)||hi===lo||!HEAT_HUE[kind]) return 'transparent';
-  let t=Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
-  if(inv) t=1-t;   // métricas de custo (CPL/CPMQL/CAC): quanto MENOR, mais vibrante (melhor)
+  if(v==null||!isFinite(v)||!HEAT_HUE[kind]) return 'transparent';
+  // só 1 valor válido na tabela filtrada (lo===hi): ele é o único ponto de referência,
+  // então conta como o mais vibrante em vez de sumir (bug: heatmap desaparecia ao
+  // filtrar período/campanha e sobrar 1 linha com dado nas colunas CPL/CPMQL/CAC)
+  let t;
+  if(hi===lo) t=1;   // único valor válido em vista: mais vibrante em vez de sumir (nunca invertido)
+  else { t=Math.max(0,Math.min(1,(v-lo)/(hi-lo))); if(inv) t=1-t; } // custo (CPL/CPMQL/CAC): quanto MENOR, mais vibrante (melhor)
   const c=hx2rgb(cvar(HEAT_HUE[kind]));
   return `rgba(${c[0]},${c[1]},${c[2]},${(0.06+0.5*t).toFixed(3)})`;
 }
