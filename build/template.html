@@ -118,7 +118,14 @@
           </div></div>
           <div class="tbl-wrap tbl-normal"><table class="dt" id="tCamp"></table></div>
           <div class="pair-chart">
-            <div class="pc-title">Custo por MQL, por campanha, por dia · clique numa linha ou na legenda para filtrar</div>
+            <div class="pc-head">
+              <div class="pc-title" id="chCampTitle">Custo por MQL, por campanha, por dia · clique numa linha ou na legenda para filtrar</div>
+              <div class="pc-metrics" data-chart="camp">
+                <button type="button" class="pc-metric-btn active" data-metric="cpmql">CPMQL</button>
+                <button type="button" class="pc-metric-btn" data-metric="cpl">CPL</button>
+                <button type="button" class="pc-metric-btn" data-metric="cac">CAC</button>
+              </div>
+            </div>
             <div class="pc-canvas-wrap"><canvas id="chCamp"></canvas></div>
             <div class="chart-legend" id="chCampLegend"></div>
           </div>
@@ -130,7 +137,14 @@
           </div></div>
           <div class="tbl-wrap tbl-normal"><table class="dt" id="tAdset"></table></div>
           <div class="pair-chart">
-            <div class="pc-title">Custo por MQL, por conjunto, por dia · clique numa linha ou na legenda para filtrar</div>
+            <div class="pc-head">
+              <div class="pc-title" id="chAdsetTitle">Custo por MQL, por conjunto, por dia · clique numa linha ou na legenda para filtrar</div>
+              <div class="pc-metrics" data-chart="adset">
+                <button type="button" class="pc-metric-btn active" data-metric="cpmql">CPMQL</button>
+                <button type="button" class="pc-metric-btn" data-metric="cpl">CPL</button>
+                <button type="button" class="pc-metric-btn" data-metric="cac">CAC</button>
+              </div>
+            </div>
             <div class="pc-canvas-wrap"><canvas id="chAdset"></canvas></div>
             <div class="chart-legend" id="chAdsetLegend"></div>
           </div>
@@ -142,7 +156,14 @@
           </div></div>
           <div class="tbl-wrap tbl-double"><table class="dt" id="tAd"></table></div>
           <div class="pair-chart">
-            <div class="pc-title">Custo por MQL, por anúncio, por dia · clique numa linha ou na legenda para filtrar</div>
+            <div class="pc-head">
+              <div class="pc-title" id="chAdTitle">Custo por MQL, por anúncio, por dia · clique numa linha ou na legenda para filtrar</div>
+              <div class="pc-metrics" data-chart="ad">
+                <button type="button" class="pc-metric-btn active" data-metric="cpmql">CPMQL</button>
+                <button type="button" class="pc-metric-btn" data-metric="cpl">CPL</button>
+                <button type="button" class="pc-metric-btn" data-metric="cac">CAC</button>
+              </div>
+            </div>
             <div class="pc-canvas-wrap"><canvas id="chAd"></canvas></div>
             <div class="chart-legend" id="chAdLegend"></div>
           </div>

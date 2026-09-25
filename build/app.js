@@ -29,6 +29,7 @@ const STATE = {
   selDays:new Set(),
   mSelC:new Set(), mSelA:new Set(), mSelAd:new Set(),
   mSearchC:'', mSearchA:'', mSearchD:'',
+  chMetric:{camp:'cpmql', adset:'cpmql', ad:'cpmql'},
   sort:{}, colw: JSON.parse(localStorage.getItem('dm_colw')||'{}'),
 };
 const taxf = ()=> STATE.tax ? TAX : 1;
@@ -513,18 +514,35 @@ function donutQlf(id, mqls, leads){
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>c.label+': '+intf(c.raw)+(leads?' ('+pct(c.raw/leads)+')':'')}}}}});
   const el2=document.getElementById('mQlfPct'); if(el2) el2.textContent=pct(leads?mqls/leads:null);
 }
-/* Mar03/Mar10: MQLs por dimensão (campanha/conjunto/anúncio) por dia — 1 linha por membro.
-   Legenda é um painel HTML próprio (fora do canvas) — a legenda NATIVA do Chart.js
-   quebra/trunca nomes longos porque respeita a largura do canvas; a nossa não.
-   Formato de cada linha: [quadrado da cor] Nome completo da campanha ... CPMQL.
-   Clique numa linha da legenda OU numa linha do gráfico filtra a tabela (selDim);
-   quando a tabela já tem seleção (STATE.mSel*), o gráfico plota SÓ as linhas
-   selecionadas (a legenda continua listando todas p/ dar pra trocar a seleção). */
-function mqlByDimChart(id, fL, fM, agg, dim, selSet){
+/* Métricas plotáveis nos gráficos "por dia" abaixo das tabelas hierárquicas —
+   botão de toggle (STATE.chMetric['camp'|'adset'|'ad']) troca qual custo é
+   plotado, sem sair do painel. `num`/`den` dizem quais contadores diários
+   (spDay/leadDay/mqlDay/vendaDay) formam a razão; `agg` lê o valor já pronto
+   (derive/salesOf) pro card da legenda e pro título do painel. */
+const CHART_METRICS = {
+  cpmql:{label:'CPMQL', title:'Custo por MQL', unit:'MQL', den:'mqlDay', aggVal:a=>derive(a).cpmql},
+  cpl:  {label:'CPL',   title:'Custo por Lead (CPL)', unit:'Lead', den:'leadDay', aggVal:a=>derive(a).cpl},
+  cac:  {label:'CAC',   title:'Custo de Aquisição (CAC)', unit:'Venda', den:'vendaDay', aggVal:a=>salesOf(a).cac},
+};
+
+/* Mar03/Mar10: custo (CPMQL/CPL/CAC) por dimensão (campanha/conjunto/anúncio) por
+   dia — 1 linha por membro. Legenda é um painel HTML próprio (fora do canvas) — a
+   legenda NATIVA do Chart.js quebra/trunca nomes longos porque respeita a largura
+   do canvas; a nossa não. Formato de cada linha: [quadrado da cor] Nome completo
+   da campanha ... valor da métrica ativa. Clique numa linha da legenda OU numa
+   linha do gráfico filtra a tabela (selDim); quando a tabela já tem seleção
+   (STATE.mSel*), o gráfico plota SÓ as linhas selecionadas (a legenda continua
+   listando todas p/ dar pra trocar a seleção). */
+function mqlByDimChart(id, fL, fM, fS, agg, dim, selSet){
   destroy(id); const el=document.getElementById(id); const legEl=document.getElementById(id+'Legend');
+  const titleEl=document.getElementById(id+'Title');
   if(!el) return;
+  const metricKey=STATE.chMetric[dim]||'cpmql', M=CHART_METRICS[metricKey];
+  const dimLabel={'camp':'campanha','adset':'conjunto','ad':'anúncio'}[dim]||dim;
+  if(titleEl) titleEl.textContent=`${M.title}, por ${dimLabel}, por dia · clique numa linha ou na legenda para filtrar`;
   const days=[...new Set([...fL,...fM].filter(r=>r.d).map(r=>r.d))].sort();
-  // ordena por CPMQL (melhor primeiro; sem MQL/gasto fica no fim) — ordem estável p/ cor e legenda
+  // ordena por CPMQL (melhor primeiro; sem MQL/gasto fica no fim) — ordem estável p/ cor e legenda,
+  // independente da métrica ativa no toggle (evita reordenar/recolorir ao trocar de métrica)
   const members=[...new Set(fL.map(r=>r[dim]))].sort((a,b)=>{
     const ca=agg[a]?derive(agg[a]).cpmql:null, cb=agg[b]?derive(agg[b]).cpmql:null;
     if(ca==null&&cb==null) return 0; if(ca==null) return 1; if(cb==null) return -1; return ca-cb;
@@ -534,13 +552,16 @@ function mqlByDimChart(id, fL, fM, agg, dim, selSet){
   // com seleção ativa nesta MESMA dimensão, o GRÁFICO plota só as linhas selecionadas
   // (a legenda abaixo continua mostrando todos os membros, pra dar pra trocar a seleção)
   const plotMembers = (selSet&&selSet.size) ? members.filter(m=>selSet.has(m)) : members;
-  // métrica do gráfico: CUSTO POR MQL por dia (gasto do dia / MQLs do dia), não contagem
+  // métrica do gráfico: gasto do dia / (MQLs|Leads|Vendas) do dia, não contagem
   const dsets=plotMembers.map(mv=>{
     const idx=members.indexOf(mv);
-    const spDay={}, mqlDay={}; days.forEach(d=>{spDay[d]=0; mqlDay[d]=0;});
+    const spDay={}, leadDay={}, mqlDay={}, vendaDay={};
+    days.forEach(d=>{spDay[d]=0; leadDay[d]=0; mqlDay[d]=0; vendaDay[d]=0;});
     fM.forEach(r=>{ if(r[dim]===mv && r.d!=null && spDay[r.d]!=null) spDay[r.d]+=r.sp; });
-    fL.forEach(r=>{ if(r[dim]===mv && r.d!=null && mqlDay[r.d]!=null) mqlDay[r.d]+=r.q; });
-    const data=days.map(d=> mqlDay[d]>0 ? +((spDay[d]*taxf())/mqlDay[d]).toFixed(2) : null);
+    fL.forEach(r=>{ if(r[dim]===mv && r.d!=null && leadDay[r.d]!=null){ leadDay[r.d]+=1; mqlDay[r.d]+=r.q; } });
+    fS.forEach(r=>{ if(r[dim]===mv && r.d!=null && vendaDay[r.d]!=null) vendaDay[r.d]+=r.vendas||0; });
+    const denDay={leadDay,mqlDay,vendaDay}[M.den];
+    const data=days.map(d=> denDay[d]>0 ? +((spDay[d]*taxf())/denDay[d]).toFixed(2) : null);
     const col=pal[idx%pal.length];
     return {label:String(mv), data, borderColor:col, backgroundColor:col, borderWidth:2, pointRadius:2, tension:.25, spanGaps:true};
   });
@@ -552,25 +573,25 @@ function mqlByDimChart(id, fL, fM, agg, dim, selSet){
         if(idx!=null&&dsets[idx]) selDim(dimChar,dsets[idx].label,false); } },
       plugins:{
         legend:{display:false},   // legenda nativa desligada — usamos o painel HTML abaixo
-        // tooltip: nome COMPLETO do dataset (nunca o rótulo do eixo X) + CPMQL do dia.
+        // tooltip: nome COMPLETO do dataset (nunca o rótulo do eixo X) + valor da métrica ativa.
         // usa array (2 linhas por item) — o Chart.js NUNCA corta/trunca texto do tooltip.
         tooltip:{displayColors:true,
-          callbacks:{title:()=>'', label:c=>[c.dataset.label, (c.raw==null?'-':brl(c.raw))+' / MQL']}}
+          callbacks:{title:()=>'', label:c=>[c.dataset.label, (c.raw==null?'-':brl(c.raw))+' / '+M.unit]}}
       },
       scales:{x:{ticks:{color:mut,font:{size:9}},grid:{display:false}},
         y:{ticks:{color:mut,font:{size:9},callback:v=>'R$'+nf0.format(v)},grid:{color:cgrid()},beginAtZero:true}}
     }
   });
-  // painel de legenda HTML: quadrado da cor | nome completo (1 linha, nunca corta) | CPMQL
+  // painel de legenda HTML: quadrado da cor | nome completo (1 linha, nunca corta) | valor da métrica ativa
   if(legEl){
     legEl.innerHTML = members.map((mv,idx)=>{
       const col=pal[idx%pal.length];
-      const cpmql = agg[mv]!=null ? derive(agg[mv]).cpmql : null;
+      const val = agg[mv]!=null ? M.aggVal(agg[mv]) : null;
       const sel = !!(selSet && selSet.has(mv));
       return `<div class="cl-row${sel?' sel':''}" data-mv="${escHtml(mv)}" title="${escHtml(mv)}">`
         +`<span class="cl-swatch" style="background:${col}"></span>`
         +`<span class="cl-name">${escHtml(mv)}</span>`
-        +`<span class="cl-val">${brl(cpmql)}</span></div>`;
+        +`<span class="cl-val">${brl(val)}</span></div>`;
     }).join('');
     legEl.querySelectorAll('.cl-row').forEach(row=>{
       row.addEventListener('click',()=>selDim(dimChar,row.dataset.mv,false));
@@ -1079,9 +1100,9 @@ function renderMeta(){
   // Mar03/Mar10: cada gráfico varia a dimensão da sua tabela — MQLs por dia, 1 linha
   // por membro, com legenda própria (cor · nome completo · CPMQL) e filtro bidirecional
   // com a tabela (STATE.mSel* determina quais linhas o gráfico plota).
-  mqlByDimChart('chCamp', Sc.fL, Sc.fM, aggC, 'camp', STATE.mSelC);
-  mqlByDimChart('chAdset', Sa.fL, Sa.fM, aggA, 'adset', STATE.mSelA);
-  mqlByDimChart('chAd', Sd.fL, Sd.fM, aggD, 'ad', STATE.mSelAd);
+  mqlByDimChart('chCamp', Sc.fL, Sc.fM, Sc.fS, aggC, 'camp', STATE.mSelC);
+  mqlByDimChart('chAdset', Sa.fL, Sa.fM, Sa.fS, aggA, 'adset', STATE.mSelA);
+  mqlByDimChart('chAd', Sd.fL, Sd.fM, Sd.fS, aggD, 'ad', STATE.mSelAd);
 
   // qualified leads
   const q=fL.filter(l=>l.q).sort((a,b)=>(a.d<b.d?1:-1));
@@ -1243,6 +1264,23 @@ document.getElementById('refreshBtn').addEventListener('click',function(){ this.
       STATE[sp.sKey]=''; STATE[sp.selKey].clear();
       if(inp) inp.value='';
       if(STATE.page==='meta') renderMeta();
+    });
+  });
+})();
+
+/* toggle de métrica (CPMQL/CPL/CAC) dos gráficos "por dia" abaixo das 3 tabelas
+   hierárquicas — cada painel (.pc-metrics) guarda a dimensão em data-chart e cada
+   botão a métrica em data-metric; clique troca STATE.chMetric[dim] e re-renderiza. */
+(function wireChartMetricToggle(){
+  document.querySelectorAll('.pc-metrics').forEach(box=>{
+    const dim=box.dataset.chart;
+    box.querySelectorAll('.pc-metric-btn').forEach(btn=>{
+      btn.addEventListener('click',()=>{
+        if(STATE.chMetric[dim]===btn.dataset.metric) return;
+        STATE.chMetric[dim]=btn.dataset.metric;
+        box.querySelectorAll('.pc-metric-btn').forEach(b=>b.classList.toggle('active', b===btn));
+        if(STATE.page==='meta') renderMeta();
+      });
     });
   });
 })();
