@@ -259,6 +259,17 @@
     .page-content{padding:16px 14px 48px}
     .topbar{padding:8px 12px; gap:8px}
     .updated{display:none}
+
+    /* Tabelas "fit" (heatmap diário, dt-fit) são forçadas via JS a width:100%
+       (table.style.width) pra caber sem scroll no desktop — num celular isso
+       espreme 17+ colunas em ~340px e cada valor vira 1-2 letras cortadas.
+       !important pra vencer o inline style; troca pra table-layout:auto (as
+       colunas ganham a largura do conteúdo) e devolve o scroll horizontal já
+       existente no .tbl-wrap (overflow:auto), sem tocar no modo fit do desktop. */
+    table.dt.dt-fit{width:auto !important; min-width:100%; table-layout:auto !important}
+    table.dt.dt-fit th, table.dt.dt-fit td{white-space:nowrap !important; padding:6px 8px}
+    table.dt.dt-fit td.dim{white-space:nowrap !important}
+    table.dt.dt-fit col{width:auto !important}
   }
 
   /* ============================ ABA RELATÓRIO ============================ */
