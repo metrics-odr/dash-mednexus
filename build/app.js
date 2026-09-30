@@ -380,12 +380,22 @@ function renderSplitTable(cfg){
   // sincroniza scrollTop entre elas pra se comportarem como 1 tabela só,
   // não importa sobre qual seção o mouse rolou.
   const secs=[...fresh.querySelectorAll('.dt-split-l, .dt-split-scroll, .dt-split-r')];
-  let syncing=false;
+  // Sem flag/rAF: atribuir o MESMO scrollTop não dispara novo evento, então não
+  // há loop; e o flag antigo descartava eventos e deixava as seções defasadas.
+  // Rolagem por roda sobre as seções fixas (sem barra) é redirecionada pro meio,
+  // que é o único "dono" do scroll vertical — assim o bloco se move como um só.
+  const mid=fresh.querySelector('.dt-split-scroll');
   secs.forEach(el=>el.addEventListener('scroll',()=>{
-    if(syncing) return; syncing=true;
-    secs.forEach(o=>{ if(o!==el) o.scrollTop=el.scrollTop; });
-    requestAnimationFrame(()=>{ syncing=false; });
+    const t=el.scrollTop;
+    secs.forEach(o=>{ if(o!==el && o.scrollTop!==t) o.scrollTop=t; });
   }));
+  fresh.querySelectorAll('.dt-split-fixed').forEach(el=>el.addEventListener('wheel',e=>{
+    if(e.ctrlKey || !mid) return;
+    const dy=e.deltaMode===1?e.deltaY*16:e.deltaY, dx=e.deltaMode===1?e.deltaX*16:e.deltaX;
+    const before=mid.scrollTop;
+    mid.scrollTop+=dy; mid.scrollLeft+=dx;
+    if(mid.scrollTop!==before) e.preventDefault();   // no limite, deixa a página rolar
+  },{passive:false}));
   // sort: clicar em QUALQUER cabeçalho (das 3 tabelas) reordena as 3 juntas
   fresh.querySelectorAll('thead th').forEach(th=>{
     th.addEventListener('click',e=>{ if(e.target.classList.contains('rsz'))return;
