@@ -294,3 +294,5 @@ ROAS (via `totals()`/`salesOf()`, não um objeto parcial) — mesma lógica das 
 
 ## Branch / git
 - Desenvolvimento em `claude/mednexus-paid-traffic-dashboard-rszgef`; manter sincronizada com `main`.
+- **Autorização permanente do usuário:** toda mudança pronta e validada vai direto
+  para a `main` (publica a dash) — não precisa perguntar antes de levar para a `main`.
