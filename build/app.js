@@ -92,6 +92,10 @@ function salesOf(a){
     convmql:      hasVd&&mqls?vendas/mqls:null,
   };
 }
+/* "(sem campanha)"/"(sem conjunto)"/"(sem anúncio)" = registro sem atribuição de
+   anúncio (build.py). Continua nos totais, mas não vira linha nas tabelas/legendas
+   por campanha/conjunto/anúncio (pedido do cliente). */
+const isNoAttrib=k=>/^\(sem (campanha|conjunto|anúncio)\)$/.test(k||'');
 function buildAgg(fL,fM,fS,dim){
   const m={};
   const get=k=>m[k]||(m[k]={sp:0,im:0,cl:0,pv:0,chk:0,leads:0,mqls:0,vendas:0,fat:0,receita:0});
@@ -553,7 +557,7 @@ function mqlByDimChart(id, fL, fM, fS, agg, dim, selSet){
   const days=[...new Set([...fL,...fM].filter(r=>r.d).map(r=>r.d))].sort();
   // ordena por CPMQL (melhor primeiro; sem MQL/gasto fica no fim) — ordem estável p/ cor e legenda,
   // independente da métrica ativa no toggle (evita reordenar/recolorir ao trocar de métrica)
-  const members=[...new Set(fL.map(r=>r[dim]))].sort((a,b)=>{
+  const members=[...new Set(fL.map(r=>r[dim]))].filter(k=>!isNoAttrib(k)).sort((a,b)=>{
     const ca=agg[a]?derive(agg[a]).cpmql:null, cb=agg[b]?derive(agg[b]).cpmql:null;
     if(ca==null&&cb==null) return 0; if(ca==null) return 1; if(cb==null) return -1; return ca-cb;
   });
@@ -644,6 +648,7 @@ function renderGeralCore(ids){
   const adAgg=buildAgg(fL,fM,fS,'ad');
   let topAd=null, bestAd=null, nAdsAtivos=0;
   Object.entries(adAgg).forEach(([ad,a])=>{
+    if(isNoAttrib(ad)) return;
     if(a.sp>0) nAdsAtivos++;
     if(topAd==null||a.mqls>topAd.m) topAd={ad,m:a.mqls};
     if(a.mqls>0){ const cq=(a.sp*taxf())/a.mqls; if(bestAd==null||cq<bestAd.v) bestAd={ad,v:cq}; }
@@ -927,7 +932,7 @@ function renderRelAds(){
   const fL=leadsActive(), fM=metaActive(), fS=salesActive();
   const struct=adStructMap(fM,fL);
   const agg=buildAgg(fL,fM,fS,'ad');
-  const pool=Object.entries(agg).filter(([ad,a])=>a.sp>0).map(([ad,a])=>({ad, a, struct:struct[ad]||{camp:'—',adset:'—'}}));
+  const pool=Object.entries(agg).filter(([ad,a])=>a.sp>0&&!isNoAttrib(ad)).map(([ad,a])=>({ad, a, struct:struct[ad]||{camp:'—',adset:'—'}}));
 
   const all=pool.slice().sort((x,y)=>{ const sx=adSampleOk(x.a), sy=adSampleOk(y.a);
     if(sx!==sy) return sx?-1:1; return cmpBest(x.a,y.a); })
@@ -1045,13 +1050,13 @@ function renderMeta(){
 
   comboChart('mCombo', daily(fL,fM,fS));
   // Mar02: barras de MQLs por anúncio (não leads)
-  const mqlByAd={}; fL.forEach(l=>{ mqlByAd[l.ad]=(mqlByAd[l.ad]||0)+l.q; });
+  const mqlByAd={}; fL.forEach(l=>{ if(!isNoAttrib(l.ad)) mqlByAd[l.ad]=(mqlByAd[l.ad]||0)+l.q; });
   hbar('mMqlAd', Object.entries(mqlByAd).map(([label,leads])=>({label,leads})), x=>x.leads, ()=>cvar('--chart-mqls'), 10, 'MQLs');
   // Mar02: donut de taxa de qualificação (verde = MQL, vermelho = desqualificado)
   donutQlf('mQlfDonut', t.mqls, t.leads);
   // Compilado dos Anúncios (CAC/Fat/ROAS "-" até conectar compradores; ordena por CPMQL como proxy)
   const adAggM=buildAgg(fL,fM,fS,'ad');
-  const topCacRows=Object.entries(adAggM).map(([ad,a])=>{const d=derive(a),s=salesOf(a);
+  const topCacRows=Object.entries(adAggM).filter(([ad])=>!isNoAttrib(ad)).map(([ad,a])=>{const d=derive(a),s=salesOf(a);
     return {k:ad, cells:{dim:ad,mqls:a.mqls,cpmql:d.cpmql,vendas:s.vendas,cac:s.cac,fat:s.fat,roas:s.roas},
       _ord:(s.cac!=null?s.cac:(d.cpmql!=null?d.cpmql:Infinity))};})
     .sort((a,b)=>a._ord-b._ord).slice(0,10);
@@ -1088,7 +1093,7 @@ function renderMeta(){
     {key:'fat',label:'Fat.',type:'brl'},{key:'receita',label:'Receita',type:'brl'},{key:'roas',label:'ROAS',type:'num',heat:'roas'},
   ];
   function hierRows(map,search){ return Object.entries(map)
-    .filter(([k])=>!search||norm(k).includes(norm(search)))
+    .filter(([k])=>!isNoAttrib(k)&&(!search||norm(k).includes(norm(search))))
     .map(([k,a])=>{const d=derive(a),s=salesOf(a);
     return {k, cells:{dim:k,gasto:d.gasto,cpm:d.cpm,ctr:d.ctr,cr:d.cr,convlp:d.convlp,leads:a.leads,cpl:d.cpl,tx:d.tx,mqls:a.mqls,cpmql:d.cpmql,
       convmql:s.convmql,vendas:s.vendas,cac:s.cac,fat:s.fat,receita:s.receita,roas:s.roas}};}); }
