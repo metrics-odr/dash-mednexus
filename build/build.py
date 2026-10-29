@@ -296,6 +296,38 @@ def log_unmatched_sales(sales_index, phone_attrib):
 # --------------------------------------------------------------------------- #
 # Processamento -> registros brutos
 # --------------------------------------------------------------------------- #
+def name_key(s):
+    """Chave de agrupamento de nomes de campanha/conjunto/anúncio: ignora caixa,
+    acentos, espaços extras/invisíveis e a diferença entre `_`, `-` e espaço —
+    o mesmo anúncio chega da Conversas e do Meta Ads com grafias levemente
+    diferentes e, sem isso, vira linhas duplicadas na dash."""
+    t = unicodedata.normalize("NFKD", str(s or ""))
+    t = "".join(c for c in t if not unicodedata.combining(c))
+    t = re.sub(r"[​-‍﻿]", "", t).casefold()
+    return re.sub(r"[\s_\-]+", " ", t).strip()
+
+
+def unify_names(meta, leads, sales, ad_links):
+    """Troca camp/adset/ad por um nome canônico por name_key (preferindo a grafia
+    do Meta Ads, que é a do gerenciador) em leads[]/meta[]/sales[]/ad_links."""
+    for field in ("camp", "adset", "ad"):
+        canon = {}
+        for rec in meta + leads + sales:  # meta primeiro => grafia do Meta vence
+            v = rec.get(field)
+            if v:
+                canon.setdefault(name_key(v), re.sub(r"\s+", " ", v).strip())
+        for rec in meta + leads + sales:
+            v = rec.get(field)
+            if v:
+                rec[field] = canon[name_key(v)]
+        if field == "ad":
+            fixed = {}
+            for k, link in ad_links.items():
+                fixed.setdefault(canon.get(name_key(k), k), link)
+            ad_links.clear()
+            ad_links.update(fixed)
+
+
 def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
     sales_index = build_sales_index(sales_rows)
 
@@ -429,6 +461,8 @@ def process(conversas_rows, meta_rows, sales_rows, leads_lp_rows):
         1 for row in leads_lp_rows[1:]
         if any((c or "").strip() for c in row) and not is_test_lead(" ".join(str(c) for c in row))
     ) if leads_lp_rows else 0
+
+    unify_names(meta, leads, sales, ad_links)
 
     dates = sorted({d for d in (
         [l["d"] for l in leads if l["d"]] + [m["d"] for m in meta if m["d"]] + [s["d"] for s in sales if s["d"]]
