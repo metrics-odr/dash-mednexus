@@ -12,11 +12,14 @@
   .sidebar .logo{padding:20px 20px 14px}
   .sidebar .logo-main{font-weight:800; font-size:18px; letter-spacing:.02em}
   .sidebar .logo-sub{font-size:.7rem; text-transform:uppercase; letter-spacing:.14em; opacity:.35; margin-top:2px}
-  .sidebar .sec{font-size:.65rem; text-transform:uppercase; letter-spacing:.1em; opacity:.3; padding:16px 20px 6px}
-  .nav-item{display:flex; align-items:center; gap:10px; padding:10px 20px; color:#c7c9d6; cursor:pointer; border-left:3px solid transparent; font-size:13.5px}
-  .nav-item:hover{background:rgba(255,255,255,.06); color:#fff}
-  .nav-item.active{background:rgba(59,91,219,.18); color:#fff; border-left-color:var(--accent-blue)}
-  .nav-item .ic{width:16px; text-align:center; opacity:.9}
+  .sidebar .sec{font-size:.62rem; font-weight:600; text-transform:uppercase; letter-spacing:.16em; color:#8a8fa8; opacity:.75; padding:18px 20px 8px}
+  .nav-item{display:flex; align-items:center; gap:14px; padding:11px 20px; color:#d4d6e2; cursor:pointer; border-left:3px solid transparent; font-size:13.5px; font-weight:500; transition:background .15s,color .15s}
+  .nav-item:hover{background:rgba(255,255,255,.05); color:#fff}
+  .nav-item.active{background:rgba(91,123,240,.16); color:#fff; border-left-color:#5B7BF0}
+  .nav-item .ic{width:20px; height:20px; flex:0 0 20px; display:inline-flex; align-items:center; justify-content:center; color:#aeb2c8}
+  .nav-item .ic svg{width:20px; height:20px}
+  .nav-item.active .ic,.nav-item:hover .ic{color:#fff}
+  .nav-item .ic-meta,.nav-item.active .ic-meta,.nav-item:hover .ic-meta{color:#4C7BF4}
   .sidebar .foot{margin-top:auto; border-top:1px solid rgba(255,255,255,.08); padding:12px 20px; font-size:11px; opacity:.35}
   .ham{display:none}
   .nav-close{display:none}
