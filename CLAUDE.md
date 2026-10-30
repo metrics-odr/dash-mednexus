@@ -256,6 +256,14 @@ configurado no pixel; aliases em `build.py`: `adds to cart`/`add to cart`, com f
 dessas colunas na planilha, ambas ficam "-". Não entram nas tabelas hierárquicas
 Campanha/Conjunto/Anúncio.
 
+**Tabelas hierárquicas = UMA `<table>` só** (`renderTable`, `band:'l'` → colunas dim+Gasto
+`position:sticky` com `left` acumulado, fundo opaco; heat vira `background-image` gradiente). Um único
+scroller (`.tbl-wrap`) ⇒ linhas nunca desalinham (o antigo `renderSplitTable`, 3 tabelas com scroll
+sincronizado por JS, foi removido — NÃO recriar). `renderTable` guarda/restaura `scrollLeft/Top` do
+`.tbl-wrap` ao reordenar/re-renderizar. Métricas centralizadas e com largura compacta
+(`compactWidth`); dimensão travada limitada a 300px, quebra em 2 linhas (tooltip com nome completo).
+Larguras salvas ficam em `localStorage['dm_colw2']`.
+
 **Regras obrigatórias das tabelas** (ver `GUIA-REPLICACAO.md`): cabeçalho sticky;
 ordenação tri‑state (asc→desc→reset); colunas redimensionáveis (persist localStorage);
 linha "Total Geral" fixa; dimensão nunca truncada (400/250/600px, wrap, ≥11px);

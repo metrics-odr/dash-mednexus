@@ -321,40 +321,20 @@
   table.dt.rel-adt .stk-l1{left:0; border-right:1px solid var(--border)}
   table.dt.rel-adt .stk-r{right:0; border-left:1px solid var(--border)}
 
-  /* tabelas hierárquicas (Campanha/Conjunto/Anúncio): 3 <table> independentes
-     lado a lado (esquerda fixa · meio com scroll próprio · direita fixa —
-     renderSplitTable em app.js). Cada seção rola VERTICALMENTE por conta
-     própria (max-height igual ao do .tbl-wrap ancestral, aplicado inline por
-     seção + overflow-y:auto aqui) — sticky nativo do thead/tfoot funciona sem
-     ressalva alguma dentro de cada uma, e um listener de scroll em app.js
-     sincroniza as 3. Barra de rolagem vertical só aparece na seção do meio
-     (as fixas escondem a própria); cabendo tudo em qualquer seção, ela
-     simplesmente não aparece e fica idêntico a uma tabela única. */
-  .dt-split{display:flex; align-items:flex-start; min-width:100%}
-  .dt-split table.dt{min-width:0; width:auto}
-  .dt-split-fixed{flex:0 0 auto; overflow-y:auto; overflow-x:hidden; scrollbar-width:none}
-  .dt-split-fixed::-webkit-scrollbar{display:none}
-  .dt-split-scroll{flex:1 1 160px; min-width:100px; overflow:auto; scrollbar-width:thin; scrollbar-color:var(--border) transparent}
-  .dt-split-scroll::-webkit-scrollbar{height:7px; width:7px}
-  .dt-split-scroll::-webkit-scrollbar-track{background:transparent}
-  .dt-split-scroll::-webkit-scrollbar-thumb{background:var(--border); border-radius:999px}
-  .dt-split-l table{border-right:1px solid var(--border)}
-  .dt-split-r table{border-left:1px solid var(--border)}
-  /* ALINHAMENTO das 3 seções: altura de linha FIXA e inteira (px), igual em
-     todas. Sem isso a altura da linha fica fracionária (line-height:normal,
-     que varia com a métrica da fonte de cada seção) e o arredondamento em
-     tela acumula linha a linha — as bordas das seções saem de fase e a
-     tabela vira um "degrau". Com altura inteira idêntica, as 3 seções sempre
-     desenham a mesma linha na mesma altura. */
-  .dt-split table.dt th, .dt-split table.dt td{
-    box-sizing:border-box; height:31px; line-height:17px; padding-top:0; padding-bottom:0}
-  .dt-split table.dt thead th{height:31px}
-  .dt-split table.dt tfoot td{height:33px}
-  /* hover da linha inteira nas 3 seções em sincronia — ver JS (renderSplitTable);
-     desativa o :hover nativo (só pegaria a seção sob o cursor) em favor da
-     classe .hover-row, aplicada às 3 ao mesmo tempo. */
-  .dt-split table.dt tbody tr:hover{background:transparent}
-  .dt-split table.dt tbody tr.hover-row{background:var(--accent-blue-light)}
+  /* tabelas hierárquicas (Campanha/Conjunto/Anúncio): UMA <table> só, com as
+     colunas dim+Gasto travadas à esquerda (position:sticky, left calculado em
+     app.js). Um único scroller (.tbl-wrap) => linhas sempre alinhadas. */
+  table.dt .stk-b{position:sticky; z-index:1; background-color:var(--surface)}
+  table.dt thead th.stk-b{z-index:4; background-color:var(--thead)}
+  table.dt tfoot td.stk-b{z-index:3; background-color:var(--tfoot)}
+  table.dt .stk-edge{border-right:1px solid var(--border); box-shadow:2px 0 4px -2px rgba(0,0,0,.12)}
+  table.dt tbody tr:hover td.stk-b{background-color:var(--accent-blue-light)}
+  table.dt tbody tr.sel td.stk-b{background-color:var(--selected)}
+  /* nome da dimensão travada: quebra em até 2 linhas (título completo no tooltip) */
+  table.dt td.dim .dclamp{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; white-space:normal; word-break:break-word; line-height:1.3}
+  table.dt td.stk-b.dim{white-space:normal}
+  /* métricas mais compactas + centralizadas nas tabelas hierárquicas */
+  table.dt.dt-center th, table.dt.dt-center td{padding:6px 9px}
   .rel-adlink{font-size:12px; font-weight:600; color:var(--accent-blue); text-decoration:none; white-space:nowrap}
   .rel-adlink:hover{text-decoration:underline}
   .rel-adlink.off{color:var(--muted); font-weight:400}
@@ -408,3 +388,5 @@
   .rel-wa-copy{font-size:12px; font-weight:700; padding:5px 12px; border-radius:8px; border:1px solid var(--border); background:var(--accent-blue); color:#fff; cursor:pointer}
   .rel-wa-copy:hover{opacity:.9}
   .rel-wa-box{white-space:pre-wrap; word-break:break-word; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px; line-height:1.55; margin:0; user-select:all; color:var(--ink)}
+
+@media(max-width:900px){ table.dt .stk-b:not(.dim){position:static; box-shadow:none} table.dt .stk-b.stk-edge{box-shadow:none} }

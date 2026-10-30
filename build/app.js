@@ -30,7 +30,7 @@ const STATE = {
   mSelC:new Set(), mSelA:new Set(), mSelAd:new Set(),
   mSearchC:'', mSearchA:'', mSearchD:'',
   chMetric:{camp:'cpmql', adset:'cpmql', ad:'cpmql'},
-  sort:{}, colw: JSON.parse(localStorage.getItem('dm_colw')||'{}'),
+  sort:{}, colw: JSON.parse(localStorage.getItem('dm_colw2')||'{}'),
 };
 const taxf = ()=> STATE.tax ? TAX : 1;
 
@@ -149,30 +149,34 @@ function autoColWidth(cfg,c){
   if(cfg.total && cfg.total[c.key]!=null){ const w=textWidth(fmtStd(c.type,cfg.total[c.key]),FONT_NUM); if(w>max) max=w; }
   return Math.max(60, Math.min(260, Math.round(max)+24));
 }
+// largura COMPACTA p/ métricas: cabeçalho (caixa-alta + seta) ou maior valor, o que for maior
+function compactWidth(cfg,c){
+  let max=textWidth(String(c.label||'').toUpperCase(),FONT_HEAD)+12;   // +12 = seta de ordenação
+  const upd=v=>{ const w=textWidth(fmtStd(c.type,v),FONT_NUM); if(w>max) max=w; };
+  (cfg.rows||[]).forEach(r=>upd(r.cells[c.key]));
+  if(cfg.total && cfg.total[c.key]!=null){ const w=textWidth(fmtStd(c.type,cfg.total[c.key]),'700'+FONT_NUM)*1.05; if(w>max) max=w; }   // total em negrito
+  return Math.max(54, Math.min(140, Math.round(max*1.1)+20));   // 20 = padding 9+9 + folga; 1.1 = a fonte real da página pode ser mais larga que a medida
+}
+const DIM_BAND_MAX=300;   // dimensão travada à esquerda: quebra em até 2 linhas em vez de alargar
 function colWidth(cfg,c){ const saved=(STATE.colw[cfg.id]||{})[c.key];
-  // dimensão nunca trunca: mesmo com largura salva (redimensionada à mão numa
-  // sessão anterior), nunca fica MENOR que o necessário p/ caber o nome mais
-  // longo de agora — senão um nome novo/maior que o salvo volta a cortar com "…".
-  if(c.type==='dim'){ const auto=autoDimWidth(cfg,c); return saved?Math.max(saved,auto):auto; }
+  if(c.type==='dim'){
+    if(c.band) return saved||Math.min(autoDimWidth(cfg,c),DIM_BAND_MAX);
+    // dimensão nunca trunca: nunca fica MENOR que o necessário p/ caber o nome mais longo
+    const auto=autoDimWidth(cfg,c); return saved?Math.max(saved,auto):auto; }
   if(saved) return saved;
   if(c.w) return c.w;
   if(c.type==='date') return 96;
-  if(c.type==='brl') return 110;   // "R$ 1.487,42" não cabia nos 92px padrão (cortava com "…")
+  if(c.type==='brl'||c.type==='pct'||c.type==='int'||c.type==='num') return compactWidth(cfg,c);
   return 92; }
 function renderTable(cfg){
-  // tabelas com colunas travadas EM BANDA (band:'l'/'r' — não confundir com o
-  // stk:'l1'/'r' do rel-adt, esquema à parte, só 1 coluna de cada lado) usam
-  // um motor separado — ver renderSplitTable — porque aqui há VÁRIAS colunas
-  // coladas de cada lado, e a soma delas pode superar a largura do card:
-  // position:sticky por célula nesse caso gruda as bandas por cima do miolo
-  // em vez de ao lado (o miolo fica permanentemente encoberto, sem posição
-  // de scroll que o revele). 3 <table> lado a lado, cada uma só do tamanho
-  // que precisa, não tem esse problema.
-  if(cfg.cols.some(c=>c.band)) return renderSplitTable(cfg);
+  // band:'l' = colunas travadas à esquerda (position:sticky) na MESMA <table>: um
+  // único scroller (.tbl-wrap) move todas as linhas juntas — não há seções
+  // independentes que possam sair de sincronia.
   const table=document.getElementById(cfg.id); if(!table) return;
   table.classList.toggle('dt-center', !!cfg.center);   // Mar01: dados centralizados
   const fit=!!cfg.fit;                                  // fit: cabe 100% da largura, sem scroll
   table.classList.toggle('dt-fit', fit);
+  const wrapEl=table.closest('.tbl-wrap'); const sL=wrapEl?wrapEl.scrollLeft:0, sT=wrapEl?wrapEl.scrollTop:0;
   const sortState=STATE.sort[cfg.id];
   let rows=cfg.rows.slice();
   if(sortState){ const {key,dir}=sortState; const c=cfg.cols.find(x=>x.key===key);
@@ -191,30 +195,40 @@ function renderTable(cfg){
     const w=fit?fitW(c):(widths[i]+'px'); return `<col${w?` style="width:${w}"`:''}>`;
   }).join('')+'</colgroup>';
   const esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
-  const stkCls=c=>c.stk?' stk-'+c.stk:'';
+  const stkCls=c=>(c.stk?' stk-'+c.stk:'')+(c.band?' stk-b':'');
+  // offset `left` de cada coluna travada = soma das larguras das travadas anteriores
+  const bandLeft={}; let acc=0, lastBand=-1;
+  if(!fit) cfg.cols.forEach((c,i)=>{ if(c.band==='l'){ bandLeft[i]=acc; acc+=widths[i]; lastBand=i; } });
+  const stkStyle=i=> bandLeft[i]!=null?`left:${bandLeft[i]}px;`:'';
+  const edgeCls=i=> i===lastBand?' stk-edge':'';
   let thead='<thead><tr>'+cfg.cols.map((c,i)=>{
     const sc = sortState&&sortState.key===c.key ? (sortState.dir==='asc'?'sorted-asc':'sorted-desc') : '';
-    return `<th class="${c.type==='dim'?'dim ':''}${sc}${stkCls(c)}" data-k="${c.key}" data-ci="${i}" title="${esc(c.label)}">${c.label}${fit?'':'<span class="rsz"></span>'}</th>`;
+    return `<th class="${c.type==='dim'?'dim ':''}${sc}${stkCls(c)}${edgeCls(i)}" style="${stkStyle(i)}" data-k="${c.key}" data-ci="${i}" title="${esc(c.label)}">${c.label}${fit?'':'<span class="rsz"></span>'}</th>`;
   }).join('')+'</tr></thead>';
   // title = valor SEMPRE completo (mesmo em fit, onde a célula pode abreviar/cortar) — passe o mouse p/ ver
   let tbody='<tbody>'+rows.map(r=>{
     const sel = cfg.selectable && cfg.selSet && cfg.selSet.has(r.k);
-    const tds=cfg.cols.map(c=>{
+    const tds=cfg.cols.map((c,i)=>{
       const v=r.cells[c.key]; let bg='';
-      if(c.heat && ext[c.key]) bg=`background:${heat(v,ext[c.key][0],ext[c.key][1],c.heat,c.heatInv)}`;
-      const cls=(c.type==='dim'?'dim':'')+(c.cls&&c.cls(r)?' '+c.cls(r):'')+stkCls(c);
+      if(c.heat && ext[c.key]){ const h=heat(v,ext[c.key][0],ext[c.key][1],c.heat,c.heatInv);
+        // célula travada precisa de fundo OPACO (senão o miolo aparece por baixo ao rolar):
+        // o heat (translúcido) vira gradiente por cima da cor da superfície
+        bg=c.band?`background-image:linear-gradient(${h},${h});`:`background:${h};`; }
+      const cls=(c.type==='dim'?'dim':'')+(c.cls&&c.cls(r)?' '+c.cls(r):'')+stkCls(c)+edgeCls(i);
       const ttl=c.type==='html'?'':` title="${esc(fmtStd(c.type,v))}"`;
-      return `<td class="${cls}" style="${bg}"${ttl}>${fmt(c.type,v)}</td>`;
+      const inner=(c.band&&c.type==='dim')?`<span class="dclamp">${fmt(c.type,v)}</span>`:fmt(c.type,v);
+      return `<td class="${cls}" style="${stkStyle(i)}${bg}"${ttl}>${inner}</td>`;
     }).join('');
     return `<tr class="${sel?'sel':''}" data-k="${encodeURIComponent(r.k)}">${tds}</tr>`;
   }).join('')+'</tbody>';
   let tfoot='';
   if(cfg.total){ tfoot='<tfoot><tr>'+cfg.cols.map((c,i)=>{
     const v=cfg.total[c.key]; const isFirst=i===0&&v==null;
-    return `<td class="${c.type==='dim'?'dim':''}${stkCls(c)}" title="${isFirst?'Total Geral':esc(fmtStd(c.type,v))}">${isFirst?'Total Geral':fmt(c.type,v)}</td>`;
+    return `<td class="${c.type==='dim'?'dim':''}${stkCls(c)}${edgeCls(i)}" style="${stkStyle(i)}" title="${isFirst?'Total Geral':esc(fmtStd(c.type,v))}">${isFirst?'Total Geral':fmt(c.type,v)}</td>`;
   }).join('')+'</tr></tfoot>'; }
   table.style.width=fit?'100%':totalW+'px';
   table.innerHTML=colgroup+thead+tbody+tfoot;
+  if(wrapEl){ wrapEl.scrollLeft=sL; wrapEl.scrollTop=sT; }   // ordenar/filtrar NÃO pode resetar a rolagem
   const cols=table.querySelector('colgroup').children;
   // sort handlers
   table.querySelectorAll('thead th').forEach(th=>{
@@ -234,7 +248,7 @@ function renderTable(cfg){
       document.body.style.userSelect='none';
       const mv=ev=>{ const nw=Math.max(60,w0+(ev.clientX-x0)); cols[ci].style.width=nw+'px'; table.style.width=(tw0-w0+nw)+'px';
         STATE.colw[cfg.id]=STATE.colw[cfg.id]||{}; STATE.colw[cfg.id][k]=nw; };
-      const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); document.body.style.userSelect=''; localStorage.setItem('dm_colw',JSON.stringify(STATE.colw)); };
+      const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); document.body.style.userSelect=''; localStorage.setItem('dm_colw2',JSON.stringify(STATE.colw)); };
       document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
     });
     // duplo-clique na borda = auto-ajustar largura ao conteúdo (como Sheets/Looker)
@@ -242,7 +256,7 @@ function renderTable(cfg){
       const th=g.parentElement, k=th.dataset.k, c=cfg.cols.find(x=>x.key===k);
       const nw=autoColWidth(cfg,c);
       STATE.colw[cfg.id]=STATE.colw[cfg.id]||{}; STATE.colw[cfg.id][k]=nw;
-      localStorage.setItem('dm_colw',JSON.stringify(STATE.colw));
+      localStorage.setItem('dm_colw2',JSON.stringify(STATE.colw));
       renderTable(cfg);
     });
   });
@@ -255,189 +269,6 @@ function renderTable(cfg){
   // hook pós-renderização (roda de novo em CADA re-render, inclusive ao ordenar,
   // pra chips/cores customizados nunca sumirem ao clicar num cabeçalho)
   if(cfg.afterRender) cfg.afterRender(table, rows);
-}
-/* ---------------- tabela "split" (colunas travadas em banda) ----------------
-   3 <table> independentes lado a lado (esquerda fixa · meio com scroll
-   próprio · direita fixa). Cada seção rola VERTICALMENTE por conta própria
-   (max-height igual ao do .tbl-wrap ancestral + overflow-y:auto — ver CSS
-   .dt-split-fixed/.dt-split-scroll) e um listener de 'scroll' sincroniza as
-   3 (scrollTop) pra se comportarem como uma tabela só. Isso evita as 2
-   armadilhas de quando isso era 1 única faixa por posição:
-   1) cabeçalho "solto": se só o miolo tem overflow-x:auto, o CSS força
-      overflow-y a virar "auto" nele também (canonicalização do spec) —
-      mas como o miolo nunca chega a rolar de fato sozinho (cresce até
-      caber o conteúdo), ele vira um scroll container que nunca se move,
-      e o sticky do thead gruda relativo A ELE, não ao .tbl-wrap que
-      realmente rola — daí o cabeçalho "sobe" junto com o resto ao rolar.
-   2) banda cobrindo o miolo: position:sticky por célula numa única
-      <table> não sobra espaço pro miolo quando (banda esquerda + banda
-      direita) > largura do card — o miolo fica permanentemente atrás das
-      bandas, sem posição de scroll que o revele.
-   Cada seção rolando por si (bounded, overflow-y:auto de verdade) faz o
-   sticky nativo funcionar sem ressalva nenhuma, e cada uma só ocupa o
-   espaço que ela mesma precisa — cabendo tudo, o flex nem mostra barra de
-   rolagem e fica idêntico a uma tabela única. */
-function renderSplitTable(cfg){
-  const root=document.getElementById(cfg.id); if(!root) return;
-  const wrap=root.closest('.tbl-wrap');
-  const sortState=STATE.sort[cfg.id];
-  let rows=cfg.rows.slice();
-  if(sortState){ const {key,dir}=sortState; const c=cfg.cols.find(x=>x.key===key);
-    rows.sort((a,b)=>{ let va=a.cells[key], vb=b.cells[key];
-      if(c && c.type==='dim'){ va=norm(va); vb=norm(vb); return dir==='asc'?(va<vb?-1:va>vb?1:0):(va>vb?-1:va<vb?1:0); }
-      va=(va==null||!isFinite(va))?-Infinity:va; vb=(vb==null||!isFinite(vb))?-Infinity:vb;
-      return dir==='asc'?va-vb:vb-va; }); }
-  const ext={};
-  cfg.cols.forEach(c=>{ if(c.heat){ const vs=rows.map(r=>r.cells[c.key]).filter(v=>v!=null&&isFinite(v)); ext[c.key]=[Math.min(...vs),Math.max(...vs)]; }});
-  const fmt=(t,v)=> t==='brl'?brl(v):t==='pct'?pct(v):t==='int'?intf(v):t==='num'?numf(v):t==='date'?brdate(v):t==='html'?(v==null?'-':String(v)):dimf(v);
-  const esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
-  const leftCols=cfg.cols.filter(c=>c.band==='l'), rightCols=cfg.cols.filter(c=>c.band==='r'), midCols=cfg.cols.filter(c=>!c.band);
-  function section(cols){
-    const widths=cols.map(c=>colWidth(cfg,c)); const totalW=widths.reduce((a,b)=>a+b,0);
-    const colgroup='<colgroup>'+cols.map((c,i)=>`<col style="width:${widths[i]}px">`).join('')+'</colgroup>';
-    const thead='<thead><tr>'+cols.map(c=>{
-      const sc = sortState&&sortState.key===c.key ? (sortState.dir==='asc'?'sorted-asc':'sorted-desc') : '';
-      return `<th class="${c.type==='dim'?'dim ':''}${sc}" data-k="${c.key}" title="${esc(c.label)}">${c.label}<span class="rsz"></span></th>`;
-    }).join('')+'</tr></thead>';
-    const tbody='<tbody>'+rows.map(r=>{
-      const sel = cfg.selectable && cfg.selSet && cfg.selSet.has(r.k);
-      const tds=cols.map(c=>{
-        const v=r.cells[c.key]; let bg='';
-        if(c.heat && ext[c.key]) bg=`background:${heat(v,ext[c.key][0],ext[c.key][1],c.heat,c.heatInv)}`;
-        const cls=(c.type==='dim'?'dim':'')+(c.cls&&c.cls(r)?' '+c.cls(r):'');
-        const ttl=c.type==='html'?'':` title="${esc(fmtStd(c.type,v))}"`;
-        return `<td class="${cls}" style="${bg}"${ttl}>${fmt(c.type,v)}</td>`;
-      }).join('');
-      return `<tr class="${sel?'sel':''}" data-k="${encodeURIComponent(r.k)}">${tds}</tr>`;
-    }).join('')+'</tbody>';
-    let tfoot='';
-    if(cfg.total){ tfoot='<tfoot><tr>'+cols.map(c=>{
-      const v=cfg.total[c.key]; const isFirst=cfg.cols.indexOf(c)===0&&v==null;
-      return `<td class="${c.type==='dim'?'dim':''}" title="${isFirst?'Total Geral':esc(fmtStd(c.type,v))}">${isFirst?'Total Geral':fmt(c.type,v)}</td>`;
-    }).join('')+'</tr></tfoot>'; }
-    return `<table class="dt${cfg.center?' dt-center':''}" style="width:${totalW}px">${colgroup}${thead}${tbody}${tfoot}</table>`;
-  }
-  // altura de cada seção = a mesma altura máxima do .tbl-wrap ancestral
-  // (tbl-normal/tbl-double/inline) — rolam juntas dentro do mesmo limite
-  // visual de sempre, sem precisar que o .tbl-wrap role por fora.
-  const maxH=wrap?parseFloat(getComputedStyle(wrap).maxHeight):NaN;
-  const hStyle=isFinite(maxH)?` style="max-height:${maxH}px"`:'';
-  // troca a própria tag por <div> (um <table> não pode ter <div> como filho —
-  // o parser HTML descarta; outerHTML recria o nó com a tag certa). Funciona
-  // tanto na 1ª renderização (raiz ainda é a <table> do template) quanto nas
-  // seguintes (raiz já é a <div class="dt-split"> da renderização anterior).
-  root.outerHTML =
-    `<div id="${cfg.id}" class="dt-split">`+
-      `<div class="dt-split-fixed dt-split-l"${hStyle}>${section(leftCols)}</div>`+
-      `<div class="dt-split-scroll"${hStyle}>${section(midCols)}</div>`+
-      `<div class="dt-split-fixed dt-split-r"${hStyle}>${section(rightCols)}</div>`+
-    `</div>`;
-  const fresh=document.getElementById(cfg.id);
-  // A seção do meio é a única com barra de rolagem HORIZONTAL; essa barra come
-  // altura do scrollport dela (clientHeight menor). Se as seções fixas ficarem
-  // com o mesmo max-height, o rodapé sticky ("Total Geral") delas fica ~7px mais
-  // baixo que o do meio e o scroll vertical delas anda um pouco mais — as linhas
-  // saem de sincronia (o "degrau"). Descontamos a altura da barra das seções
-  // fixas p/ os 3 scrollports terem exatamente a mesma altura útil.
-  (function alignScrollports(){
-    const mid=fresh.querySelector('.dt-split-scroll'); if(!mid) return;
-    const sb=mid.offsetHeight-mid.clientHeight;   // altura da barra horizontal (0 se não houver)
-    if(!(sb>0) || !isFinite(maxH)) return;
-    fresh.querySelectorAll('.dt-split-fixed').forEach(el=>{ el.style.maxHeight=(maxH-sb)+'px'; });
-  })();
-  // hover sincronizado: passar o mouse em QUALQUER seção (esquerda/meio/direita)
-  // acende a linha correspondente (mesmo índice) nas 3 — senão o :hover nativo
-  // só pega a seção sob o cursor, e visualmente parece que só um pedaço da
-  // linha "existe" (ver CSS .dt-split table.dt tbody tr:hover desativado).
-  const bodyRows=['.dt-split-l','.dt-split-scroll','.dt-split-r'].map(sel=>{
-    const t=fresh.querySelector(sel+' table.dt'); return t?[...t.querySelectorAll('tbody tr')]:[];
-  });
-  // trava de segurança do alinhamento: mesmo com a altura fixa do CSS, qualquer
-  // diferença de fração de pixel entre as seções (fonte diferente por SO, zoom
-  // do navegador) acumularia linha a linha e viraria "degrau". Aqui a altura
-  // REAL de cada linha é medida nas 3 seções e a maior (arredondada p/ cima,
-  // em pixel inteiro) é aplicada às 3 — as bordas ficam sempre na mesma altura.
-  (function lockRowHeights(){
-    const secs=bodyRows.filter(a=>a.length);
-    if(secs.length<2) return;
-    const n=Math.min(...secs.map(a=>a.length));
-    const hs=[]; for(let i=0;i<n;i++) hs.push(Math.ceil(Math.max(...secs.map(a=>a[i].getBoundingClientRect().height))));
-    for(let i=0;i<n;i++) secs.forEach(a=>{ a[i].style.height=hs[i]+'px'; });
-    // mesma trava p/ cabeçalho e rodapé (se um for 1px mais alto, TODAS as
-    // linhas daquela seção descem junto e a tabela inteira sai de sincronia)
-    ['thead tr','tfoot tr'].forEach(sel=>{
-      const els=[...fresh.querySelectorAll('.dt-split-l '+sel+', .dt-split-scroll '+sel+', .dt-split-r '+sel)]
-        .filter(tr=>tr.children.length);
-      if(els.length<2) return;
-      const h=Math.ceil(Math.max(...els.map(tr=>tr.getBoundingClientRect().height)));
-      els.forEach(tr=>{ tr.style.height=h+'px'; });
-    });
-  })();
-  rows.forEach((r,i)=>{
-    const trio=bodyRows.map(trs=>trs[i]).filter(Boolean);
-    trio.forEach(tr=>{
-      tr.addEventListener('mouseenter',()=>trio.forEach(t=>t.classList.add('hover-row')));
-      tr.addEventListener('mouseleave',()=>trio.forEach(t=>t.classList.remove('hover-row')));
-    });
-  });
-  // as 3 seções rolam verticalmente cada uma por conta própria (CSS acima) —
-  // sincroniza scrollTop entre elas pra se comportarem como 1 tabela só,
-  // não importa sobre qual seção o mouse rolou.
-  const secs=[...fresh.querySelectorAll('.dt-split-l, .dt-split-scroll, .dt-split-r')];
-  // Sem flag/rAF: atribuir o MESMO scrollTop não dispara novo evento, então não
-  // há loop; e o flag antigo descartava eventos e deixava as seções defasadas.
-  // Rolagem por roda sobre as seções fixas (sem barra) é redirecionada pro meio,
-  // que é o único "dono" do scroll vertical — assim o bloco se move como um só.
-  const mid=fresh.querySelector('.dt-split-scroll');
-  secs.forEach(el=>el.addEventListener('scroll',()=>{
-    const t=el.scrollTop;
-    secs.forEach(o=>{ if(o!==el && o.scrollTop!==t) o.scrollTop=t; });
-  }));
-  fresh.querySelectorAll('.dt-split-fixed').forEach(el=>el.addEventListener('wheel',e=>{
-    if(e.ctrlKey || !mid) return;
-    const dy=e.deltaMode===1?e.deltaY*16:e.deltaY, dx=e.deltaMode===1?e.deltaX*16:e.deltaX;
-    const before=mid.scrollTop;
-    mid.scrollTop+=dy; mid.scrollLeft+=dx;
-    if(mid.scrollTop!==before) e.preventDefault();   // no limite, deixa a página rolar
-  },{passive:false}));
-  // sort: clicar em QUALQUER cabeçalho (das 3 tabelas) reordena as 3 juntas
-  fresh.querySelectorAll('thead th').forEach(th=>{
-    th.addEventListener('click',e=>{ if(e.target.classList.contains('rsz'))return;
-      const k=th.dataset.k, cur=STATE.sort[cfg.id];
-      if(!cur||cur.key!==k) STATE.sort[cfg.id]={key:k,dir:'asc'};
-      else if(cur.dir==='asc') STATE.sort[cfg.id]={key:k,dir:'desc'};
-      else delete STATE.sort[cfg.id];
-      renderSplitTable(cfg);
-    });
-  });
-  // resize: cada coluna só afeta a largura da SUA seção (as 3 tabelas são
-  // independentes, então redimensionar ao vivo não desalinha nada)
-  fresh.querySelectorAll('thead th .rsz').forEach(g=>{
-    g.addEventListener('mousedown',e=>{ e.preventDefault(); e.stopPropagation();
-      const th=g.parentElement, k=th.dataset.k, x0=e.clientX;
-      const sectionTable=th.closest('table'), ths=[...th.parentElement.children];
-      const ci=ths.indexOf(th), col=sectionTable.querySelector('colgroup').children[ci];
-      const w0=col.offsetWidth, tw0=sectionTable.offsetWidth;
-      document.body.style.userSelect='none';
-      const mv=ev=>{ const nw=Math.max(60,w0+(ev.clientX-x0)); col.style.width=nw+'px'; sectionTable.style.width=(tw0-w0+nw)+'px';
-        STATE.colw[cfg.id]=STATE.colw[cfg.id]||{}; STATE.colw[cfg.id][k]=nw; };
-      const up=()=>{ document.removeEventListener('mousemove',mv); document.removeEventListener('mouseup',up); document.body.style.userSelect=''; localStorage.setItem('dm_colw',JSON.stringify(STATE.colw)); };
-      document.addEventListener('mousemove',mv); document.addEventListener('mouseup',up);
-    });
-    g.addEventListener('dblclick',e=>{ e.preventDefault(); e.stopPropagation();
-      const th=g.parentElement, k=th.dataset.k, c=cfg.cols.find(x=>x.key===k);
-      const nw=autoColWidth(cfg,c);
-      STATE.colw[cfg.id]=STATE.colw[cfg.id]||{}; STATE.colw[cfg.id][k]=nw;
-      localStorage.setItem('dm_colw',JSON.stringify(STATE.colw));
-      renderSplitTable(cfg);
-    });
-  });
-  if(cfg.selectable && cfg.onSelect){
-    fresh.querySelectorAll('tbody tr').forEach(tr=>{
-      tr.addEventListener('click',e=>{ cfg.onSelect(decodeURIComponent(tr.dataset.k), e); });
-    });
-  }
-  if(cfg.afterRender) cfg.afterRender(fresh, rows);
 }
 /* Heatmap por coluna: cor FIXA por métrica (definida em identidade-visual.css),
    só a OPACIDADE varia com o valor (maior valor = mais vibrante). */
@@ -1083,7 +914,7 @@ function renderMeta(){
   // rolam horizontalmente juntas (band do meio) — cabendo tudo, não aparece
   // scroll nenhum e fica idêntico a uma tabela única, cabeçalho incluso.
   const hcols=[
-    {key:'dim',label:'',type:'dim',big:true,band:'l'},{key:'gasto',label:'Gasto',type:'brl',band:'l',heat:'gasto'},
+    {key:'dim',label:'',type:'dim',band:'l'},{key:'gasto',label:'Gasto',type:'brl',band:'l',heat:'gasto'},
     {key:'cpm',label:'CPM',type:'brl'},
     {key:'ctr',label:'CTR',type:'pct'},{key:'cr',label:'CR',type:'pct'},{key:'convlp',label:'ConvLP',type:'pct'},
     {key:'leads',label:'Leads',type:'int'},{key:'cpl',label:'CPL',type:'brl',heat:'cpl',heatInv:true},
@@ -1104,11 +935,11 @@ function renderMeta(){
   // Tabelas hierárquicas: NÃO usam "fit" — a dimensão (campanha/conjunto/anúncio)
   // tem largura automática p/ caber o nome INTEIRO por padrão, nunca quebra linha,
   // é redimensionável (arrastar borda) e 2 cliques na borda auto-ajusta (Sheets/Looker).
-  renderTable({id:'tCamp', cols:hcols.map((c,i)=>i===0?{...c,label:'Campanha'}:c), rows:hierRows(aggC,STATE.mSearchC), total:totRowOf(totals(Sc.fL,Sc.fM,Sc.fS)),
+  renderTable({id:'tCamp', center:true, cols:hcols.map((c,i)=>i===0?{...c,label:'Campanha'}:c), rows:hierRows(aggC,STATE.mSearchC), total:totRowOf(totals(Sc.fL,Sc.fM,Sc.fS)),
     selectable:true, selSet:STATE.mSelC, onSelect:(k,e)=>selDim('C',k,e&&(e.ctrlKey||e.metaKey))});
-  renderTable({id:'tAdset', cols:hcols.map((c,i)=>i===0?{...c,label:'Conjunto',big:true}:c), rows:hierRows(aggA,STATE.mSearchA), total:totRowOf(totals(Sa.fL,Sa.fM,Sa.fS)),
+  renderTable({id:'tAdset', center:true, cols:hcols.map((c,i)=>i===0?{...c,label:'Conjunto',big:true}:c), rows:hierRows(aggA,STATE.mSearchA), total:totRowOf(totals(Sa.fL,Sa.fM,Sa.fS)),
     selectable:true, selSet:STATE.mSelA, onSelect:(k,e)=>selDim('A',k,e&&(e.ctrlKey||e.metaKey))});
-  renderTable({id:'tAd', cols:hcols.map((c,i)=>i===0?{...c,label:'Anúncio'}:c), rows:hierRows(aggD,STATE.mSearchD), total:totRowOf(totals(Sd.fL,Sd.fM,Sd.fS)),
+  renderTable({id:'tAd', center:true, cols:hcols.map((c,i)=>i===0?{...c,label:'Anúncio'}:c), rows:hierRows(aggD,STATE.mSearchD), total:totRowOf(totals(Sd.fL,Sd.fM,Sd.fS)),
     selectable:true, selSet:STATE.mSelAd, onSelect:(k,e)=>selDim('D',k,e&&(e.ctrlKey||e.metaKey))});
   updateTblToolsUI();
 
