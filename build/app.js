@@ -157,11 +157,9 @@ function compactWidth(cfg,c){
   if(cfg.total && cfg.total[c.key]!=null){ const w=textWidth(fmtStd(c.type,cfg.total[c.key]),'700'+FONT_NUM)*1.05; if(w>max) max=w; }   // total em negrito
   return Math.max(54, Math.min(140, Math.round(max*1.1)+20));   // 20 = padding 9+9 + folga; 1.1 = a fonte real da página pode ser mais larga que a medida
 }
-const DIM_BAND_MAX=300;   // dimensão travada à esquerda: quebra em até 2 linhas em vez de alargar
 function colWidth(cfg,c){ const saved=(STATE.colw[cfg.id]||{})[c.key];
   if(c.type==='dim'){
-    if(c.band) return saved||Math.min(autoDimWidth(cfg,c),DIM_BAND_MAX);
-    // dimensão nunca trunca: nunca fica MENOR que o necessário p/ caber o nome mais longo
+        // dimensão nunca trunca: nunca fica MENOR que o necessário p/ caber o nome mais longo
     const auto=autoDimWidth(cfg,c); return saved?Math.max(saved,auto):auto; }
   if(saved) return saved;
   if(c.w) return c.w;
@@ -195,15 +193,19 @@ function renderTable(cfg){
     const w=fit?fitW(c):(widths[i]+'px'); return `<col${w?` style="width:${w}"`:''}>`;
   }).join('')+'</colgroup>';
   const esc=s=>String(s==null?'':s).replace(/"/g,'&quot;');
-  const stkCls=c=>(c.stk?' stk-'+c.stk:'')+(c.band?' stk-b':'');
-  // offset `left` de cada coluna travada = soma das larguras das travadas anteriores
+  // colunas travadas (sticky): só enquanto o bloco couber em ~70% da largura visível —
+  // nome de dimensão NUNCA quebra linha, então se ficar largo demais ele rola junto
+  // em vez de cobrir o miolo
   const bandLeft={}; let acc=0, lastBand=-1;
-  if(!fit) cfg.cols.forEach((c,i)=>{ if(c.band==='l'){ bandLeft[i]=acc; acc+=widths[i]; lastBand=i; } });
+  const wrapW=(wrapEl&&wrapEl.clientWidth)||1200;
+  if(!fit) for(let i=0;i<cfg.cols.length;i++){ const c=cfg.cols[i]; if(c.band!=='l') continue;
+    if(acc+widths[i]>wrapW*0.7) break; bandLeft[i]=acc; acc+=widths[i]; lastBand=i; }
+  const stkCls=(c,i)=>(c.stk?' stk-'+c.stk:'')+(bandLeft[i]!=null?' stk-b':'');
   const stkStyle=i=> bandLeft[i]!=null?`left:${bandLeft[i]}px;`:'';
   const edgeCls=i=> i===lastBand?' stk-edge':'';
   let thead='<thead><tr>'+cfg.cols.map((c,i)=>{
     const sc = sortState&&sortState.key===c.key ? (sortState.dir==='asc'?'sorted-asc':'sorted-desc') : '';
-    return `<th class="${c.type==='dim'?'dim ':''}${sc}${stkCls(c)}${edgeCls(i)}" style="${stkStyle(i)}" data-k="${c.key}" data-ci="${i}" title="${esc(c.label)}">${c.label}${fit?'':'<span class="rsz"></span>'}</th>`;
+    return `<th class="${c.type==='dim'?'dim ':''}${sc}${stkCls(c,i)}${edgeCls(i)}" style="${stkStyle(i)}" data-k="${c.key}" data-ci="${i}" title="${esc(c.label)}">${c.label}${fit?'':'<span class="rsz"></span>'}</th>`;
   }).join('')+'</tr></thead>';
   // title = valor SEMPRE completo (mesmo em fit, onde a célula pode abreviar/cortar) — passe o mouse p/ ver
   let tbody='<tbody>'+rows.map(r=>{
@@ -214,9 +216,9 @@ function renderTable(cfg){
         // célula travada precisa de fundo OPACO (senão o miolo aparece por baixo ao rolar):
         // o heat (translúcido) vira gradiente por cima da cor da superfície
         bg=c.band?`background-image:linear-gradient(${h},${h});`:`background:${h};`; }
-      const cls=(c.type==='dim'?'dim':'')+(c.cls&&c.cls(r)?' '+c.cls(r):'')+stkCls(c)+edgeCls(i);
+      const cls=(c.type==='dim'?'dim':'')+(c.cls&&c.cls(r)?' '+c.cls(r):'')+stkCls(c,i)+edgeCls(i);
       const ttl=c.type==='html'?'':` title="${esc(fmtStd(c.type,v))}"`;
-      const inner=(c.band&&c.type==='dim')?`<span class="dclamp">${fmt(c.type,v)}</span>`:fmt(c.type,v);
+      const inner=fmt(c.type,v);
       return `<td class="${cls}" style="${stkStyle(i)}${bg}"${ttl}>${inner}</td>`;
     }).join('');
     return `<tr class="${sel?'sel':''}" data-k="${encodeURIComponent(r.k)}">${tds}</tr>`;
@@ -224,7 +226,7 @@ function renderTable(cfg){
   let tfoot='';
   if(cfg.total){ tfoot='<tfoot><tr>'+cfg.cols.map((c,i)=>{
     const v=cfg.total[c.key]; const isFirst=i===0&&v==null;
-    return `<td class="${c.type==='dim'?'dim':''}${stkCls(c)}${edgeCls(i)}" style="${stkStyle(i)}" title="${isFirst?'Total Geral':esc(fmtStd(c.type,v))}">${isFirst?'Total Geral':fmt(c.type,v)}</td>`;
+    return `<td class="${c.type==='dim'?'dim':''}${stkCls(c,i)}${edgeCls(i)}" style="${stkStyle(i)}" title="${isFirst?'Total Geral':esc(fmtStd(c.type,v))}">${isFirst?'Total Geral':fmt(c.type,v)}</td>`;
   }).join('')+'</tr></tfoot>'; }
   table.style.width=fit?'100%':totalW+'px';
   table.innerHTML=colgroup+thead+tbody+tfoot;

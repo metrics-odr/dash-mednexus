@@ -261,7 +261,7 @@ Campanha/Conjunto/Anúncio.
 scroller (`.tbl-wrap`) ⇒ linhas nunca desalinham (o antigo `renderSplitTable`, 3 tabelas com scroll
 sincronizado por JS, foi removido — NÃO recriar). `renderTable` guarda/restaura `scrollLeft/Top` do
 `.tbl-wrap` ao reordenar/re-renderizar. Métricas centralizadas e com largura compacta
-(`compactWidth`); dimensão travada limitada a 300px, quebra em 2 linhas (tooltip com nome completo).
+(`compactWidth`); nome da dimensão NUNCA quebra linha (largura = nome inteiro; colunas travadas só enquanto couberem em 70% da largura visível).
 Larguras salvas ficam em `localStorage['dm_colw2']`.
 
 **Regras obrigatórias das tabelas** (ver `GUIA-REPLICACAO.md`): cabeçalho sticky;
