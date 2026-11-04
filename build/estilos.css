@@ -331,7 +331,9 @@
   table.dt tbody tr:hover td.stk-b{background-color:var(--accent-blue-light)}
   table.dt tbody tr.sel td.stk-b{background-color:var(--selected)}
   /* métricas mais compactas + centralizadas nas tabelas hierárquicas */
-  table.dt.dt-center th, table.dt.dt-center td{padding:6px 9px}
+  table.dt.dt-center th, table.dt.dt-center td{padding:6px 4px}
+  table.dt.dt-center th.dim, table.dt.dt-center td.dim{padding:6px 9px}   /* nome da dimensão mantém folga */
+  table.dt.dt-center thead th{font-size:10.5px; letter-spacing:0}
   .rel-adlink{font-size:12px; font-weight:600; color:var(--accent-blue); text-decoration:none; white-space:nowrap}
   .rel-adlink:hover{text-decoration:underline}
   .rel-adlink.off{color:var(--muted); font-weight:400}

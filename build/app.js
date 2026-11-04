@@ -155,7 +155,7 @@ function compactWidth(cfg,c){
   const upd=v=>{ const w=textWidth(fmtStd(c.type,v),FONT_NUM); if(w>max) max=w; };
   (cfg.rows||[]).forEach(r=>upd(r.cells[c.key]));
   if(cfg.total && cfg.total[c.key]!=null){ const w=textWidth(fmtStd(c.type,cfg.total[c.key]),'700'+FONT_NUM)*1.05; if(w>max) max=w; }   // total em negrito
-  return Math.max(54, Math.min(140, Math.round(max*1.1)+20));   // 20 = padding 9+9 + folga; 1.1 = a fonte real da página pode ser mais larga que a medida
+  return Math.max(44, Math.min(130, Math.round(max*1.05)+10));   // 10 = padding 4+4 + folga; 1.05 = a fonte real da página pode ser mais larga que a medida
 }
 function colWidth(cfg,c){ const saved=(STATE.colw[cfg.id]||{})[c.key];
   if(c.type==='dim'){
