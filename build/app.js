@@ -328,6 +328,35 @@ function comboChart(id, d){
         y1:{position:'right',ticks:{color:mut,font:{size:10}},grid:{display:false},beginAtZero:true,title:{display:true,text:'R$',color:mut,font:{size:10}}}}}
   });
 }
+/* Indicadores por dia (3 gráficos): CPM/CTR · CR/ConvLP · Tx-MQL */
+function dailyIndicators(pre, d){
+  const labels=d.map(x=>x.d.slice(5)), mut=cmuted(), gr=cgrid();
+  const cRed=cvar('--chart-gasto'), cBlue=cvar('--chart-leads'), cYel=cvar('--chart-cpmql'), cGreen=cvar('--bar-q')||'#2F9E44';
+  const pc=v=>v==null?null:+(v*100).toFixed(2);
+  const ds=d.map(x=>derive(x));
+  const base=(extra)=>({responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+    plugins:{legend:{labels:{color:cink(),boxWidth:10,usePointStyle:true,font:{size:11}}},
+      tooltip:{callbacks:{label:c=>c.dataset.label+': '+(c.dataset.fmt==='brl'?brl(c.raw):(c.raw==null?'-':numf(c.raw)+'%'))}}},
+    scales:Object.assign({x:{ticks:{color:mut,font:{size:10}},grid:{display:false}}},extra)});
+  const ln=(label,data,col,axis,fmt)=>({label,data,fmt,borderColor:col,backgroundColor:col,yAxisID:axis,borderWidth:2,pointRadius:3,spanGaps:true,tension:.3});
+  const idA=pre+'IndCpm', idB=pre+'IndCr', idC=pre+'IndTx';
+  destroy(idA); destroy(idB); destroy(idC);
+  let el=document.getElementById(idA);
+  if(el) charts[idA]=new Chart(el,{type:'line',data:{labels,datasets:[
+      ln('CPM',ds.map(x=>x.cpm==null?null:+x.cpm.toFixed(2)),cRed,'y','brl'),
+      ln('CTR',ds.map(x=>pc(x.ctr)),cBlue,'y1','pct')]},
+    options:base({y:{position:'left',beginAtZero:true,ticks:{color:mut,font:{size:10},callback:v=>brl(v)},grid:{color:gr}},
+      y1:{position:'right',beginAtZero:true,ticks:{color:mut,font:{size:10},callback:v=>numf(v)+'%'},grid:{display:false}}})});
+  el=document.getElementById(idB);
+  if(el) charts[idB]=new Chart(el,{type:'line',data:{labels,datasets:[
+      ln('CR',ds.map(x=>pc(x.cr)),cBlue,'y','pct'),
+      ln('ConvLP',ds.map(x=>pc(x.convlp)),cYel,'y','pct')]},
+    options:base({y:{beginAtZero:true,ticks:{color:mut,font:{size:10},callback:v=>numf(v)+'%'},grid:{color:gr}}})});
+  el=document.getElementById(idC);
+  if(el) charts[idC]=new Chart(el,{type:'line',data:{labels,datasets:[
+      ln('Tx‑MQL',ds.map(x=>pc(x.tx)),cGreen,'y','pct')]},
+    options:base({y:{beginAtZero:true,ticks:{color:mut,font:{size:10},callback:v=>numf(v)+'%'},grid:{color:gr}}})});
+}
 function hbar(id, items, valFn, colorFn, top, unit){
   destroy(id); const el=document.getElementById(id); if(!el) return;
   unit=unit||'leads';
@@ -507,6 +536,7 @@ function renderGeralCore(ids){
   ];
   document.getElementById(ids.kpis2).innerHTML=k2.map(kpiCard).join('');
   comboChart(ids.combo, daily(fL,fM,fS));
+  dailyIndicators(ids.combo.charAt(0), dd);
   // por origem
   const srcName={meta:'Meta Ads',google:'Google Ads',org:'Orgânico',outros:'Outros'};
   const bySrc={}; fL.forEach(l=>{const k=srcName[l.src]||l.src; bySrc[k]=(bySrc[k]||0)+1;});
