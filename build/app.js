@@ -283,8 +283,8 @@ function renderTable(cfg){
 const HEAT_HUE={gasto:'--heat-gasto', leads:'--heat-leads', mqls:'--heat-mqls', roas:'--heat-roas', vendas:'--heat-vendas',
   cpl:'--heat-cpl', cpmql:'--heat-cpmql', cac:'--heat-cac'};
 function heat(v,lo,hi,kind,inv){
-  if(v==null||!isFinite(v)||hi===lo||!HEAT_HUE[kind]) return 'transparent';
-  let t=Math.max(0,Math.min(1,(v-lo)/(hi-lo)));
+  if(v==null||!isFinite(v)||!HEAT_HUE[kind]) return 'transparent';
+  let t=hi===lo?1:Math.max(0,Math.min(1,(v-lo)/(hi-lo)));   // valor único na coluna: cor cheia (antes ficava sem cor)
   if(inv) t=1-t;   // métricas de custo (CPL/CPMQL/CAC): quanto MENOR, mais vibrante (melhor)
   const c=hx2rgb(cvar(HEAT_HUE[kind]));
   return `rgba(${c[0]},${c[1]},${c[2]},${(0.06+0.5*t).toFixed(3)})`;
