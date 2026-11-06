@@ -159,8 +159,9 @@ function compactWidth(cfg,c){
 }
 function colWidth(cfg,c){ const saved=(STATE.colw[cfg.id]||{})[c.key];
   if(c.type==='dim'){
-        // dimensão nunca trunca: nunca fica MENOR que o necessário p/ caber o nome mais longo
-    const auto=autoDimWidth(cfg,c); return saved?Math.max(saved,auto):auto; }
+        // padrão = cabe o nome mais longo; o usuário pode ENCOLHER arrastando a borda
+        // (nome cortado com "…", completo no tooltip; duplo-clique = auto-ajustar)
+    return saved?Math.max(60,saved):autoDimWidth(cfg,c); }
   if(saved) return saved;
   if(c.w) return c.w;
   if(c.type==='date') return 96;
