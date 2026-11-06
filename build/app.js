@@ -994,8 +994,8 @@ function renderMeta(){
   document.getElementById('qCount').textContent=q.length+' leads · '+nq+' qualificados';
   renderTable({id:'tQual',
     cols:[{key:'d',label:'Data',type:'date'},{key:'nm',label:'Nome',type:'dim'},{key:'qual',label:'Qualificado',type:'dim',w:100},{key:'prof',label:'Profissão',type:'dim'},
-      {key:'bucket',label:'Faixa',type:'dim'},{key:'camp',label:'Campanha',type:'dim',big:true},{key:'em',label:'E‑mail',type:'dim',w:200},{key:'ph',label:'Telefone',type:'dim',w:110}],
-    rows:q.map((l,i)=>({k:'q'+i, cells:{d:l.d,nm:l.nm,qual:l.q?'✔ Sim':'Não',prof:l.prof,bucket:l.bucket,camp:l.camp,em:l.em,ph:l.ph}}))});
+      {key:'bucket',label:'Faixa',type:'dim'},{key:'camp',label:'Campanha',type:'dim',big:true},{key:'ad',label:'Anúncio',type:'dim',big:true},{key:'em',label:'E‑mail',type:'dim',w:200},{key:'ph',label:'Telefone',type:'dim',w:110}],
+    rows:q.map((l,i)=>({k:'q'+i, cells:{d:l.d,nm:l.nm,qual:l.q?'✔ Sim':'Não',prof:l.prof,bucket:l.bucket,camp:l.camp,ad:l.ad,em:l.em,ph:l.ph}}))});
 }
 
 /* ---------------- date presets ---------------- */
