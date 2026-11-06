@@ -988,13 +988,14 @@ function renderMeta(){
   mqlByDimChart('chAdset', Sa.fL, Sa.fM, Sa.fS, aggA, 'adset', STATE.mSelA);
   mqlByDimChart('chAd', Sd.fL, Sd.fM, Sd.fS, aggD, 'ad', STATE.mSelAd);
 
-  // qualified leads
-  const q=fL.filter(l=>l.q).sort((a,b)=>(a.d<b.d?1:-1));
-  document.getElementById('qCount').textContent=q.length+' leads';
+  // todos os leads (qualificados destacados na coluna "Qualificado")
+  const q=fL.slice().sort((a,b)=>(a.d<b.d?1:-1));
+  const nq=q.filter(l=>l.q).length;
+  document.getElementById('qCount').textContent=q.length+' leads · '+nq+' qualificados';
   renderTable({id:'tQual',
-    cols:[{key:'d',label:'Data',type:'date'},{key:'nm',label:'Nome',type:'dim'},{key:'prof',label:'Profissão',type:'dim'},
+    cols:[{key:'d',label:'Data',type:'date'},{key:'nm',label:'Nome',type:'dim'},{key:'qual',label:'Qualificado',type:'dim',w:100},{key:'prof',label:'Profissão',type:'dim'},
       {key:'bucket',label:'Faixa',type:'dim'},{key:'camp',label:'Campanha',type:'dim',big:true},{key:'em',label:'E‑mail',type:'dim',w:200},{key:'ph',label:'Telefone',type:'dim',w:110}],
-    rows:q.map((l,i)=>({k:'q'+i, cells:{d:l.d,nm:l.nm,prof:l.prof,bucket:l.bucket,camp:l.camp,em:l.em,ph:l.ph}}))});
+    rows:q.map((l,i)=>({k:'q'+i, cells:{d:l.d,nm:l.nm,qual:l.q?'✔ Sim':'Não',prof:l.prof,bucket:l.bucket,camp:l.camp,em:l.em,ph:l.ph}}))});
 }
 
 /* ---------------- date presets ---------------- */
