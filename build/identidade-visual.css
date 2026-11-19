@@ -30,12 +30,12 @@
 
 /* ------------------------------ TEMA ESCURO (toggle) ----------------------- */
 :root[data-theme="dark"]{
-  --text-primary:#0A0C11;      /* fundo da sidebar (mais escuro que o fundo principal) */
-  --bg:#0F1117;                /* Fundo principal */
-  --surface:#171A22;           /* Cards */
-  --border:#2A2F3A;            /* Bordas */
-  --ink:#F2F3F5;               /* Texto principal */
-  --muted:#9AA1AD;             /* Texto secundário */
+  --text-primary:#000000;      /* fundo da sidebar (mais escuro que o fundo principal) */
+  --bg:#000000;                /* Fundo principal */
+  --surface:#1B1915;           /* Cards */
+  --border:#4B4335;            /* Bordas */
+  --ink:#F3EDE0;               /* Texto principal */
+  --muted:#A89F8C;             /* Texto secundário */
   --accent-blue:#5B7BF0;       /* Accent: botões, links, abas ativas, foco */
   --accent-blue-light:#1B2440; /* fundo sutil azulado: badges, hover de linha, hero */
   --selected:#26365F;          /* Linha selecionada */
@@ -44,10 +44,10 @@
   --red:#EF4444;
   --yellow:#F59E0B;            /* Alerta */
   --aqua:#06B6D4;              /* Info */
-  --black:#0F1117;
-  --grid:#252A34;              /* Linhas do gráfico */
-  --thead:#1E222C;             /* Cabeçalho de tabela */
-  --tfoot:#1B1F27;
+  --black:#000000;
+  --grid:#2F2A21;              /* Linhas do gráfico */
+  --thead:#25211A;             /* Cabeçalho de tabela */
+  --tfoot:#211D16;
   /* PALETA dos GRÁFICOS — mais vívida/saturada (até 10 séries) */
   --cc1:#2F6BFF; --cc2:#16D66B; --cc3:#FF3B47; --cc4:#FFB020; --cc5:#9D5CFF;
   --cc6:#1FD5EC; --cc7:#FF4D8D; --cc8:#9BE015; --cc9:#FF8A1F; --cc10:#6D7BFF;
