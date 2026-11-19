@@ -7,7 +7,7 @@
 /* ------------------------------ TEMA CLARO (padrão) ------------------------ */
 :root{
   --text-primary:#1A1D2E; --bg:#F4F5F8; --surface:#FFFFFF; --border:#E6E8EE;
-  --muted:#6B7280; --ink:#1A1D2E; --selected:#DBEAFE;
+  --muted:#6B7280; --ink:#1A1D2E; --selected:#DBEAFE; --row-hover:#EEF2FF;
   --accent-blue:#3B5BDB; --accent-blue-light:#EEF2FF;
   --good:#0CA30C; --bad:#E34948; --yellow:#E8A400; --aqua:#1BAF7A; --red:#E34948; --black:#1A1D2E;
   --grid:#EEF0F5; --thead:#F5F7FB; --tfoot:#EEF1F7;
@@ -38,7 +38,8 @@
   --muted:#A89F8C;             /* Texto secundário */
   --accent-blue:#5B7BF0;       /* Accent: botões, links, abas ativas, foco */
   --accent-blue-light:#1B2440; /* fundo sutil azulado: badges, hover de linha, hero */
-  --selected:#26365F;          /* Linha selecionada */
+  --selected:#3D3424;          /* Linha selecionada (marrom quente, segue a paleta do tema) */
+  --row-hover:#2A241A;         /* Hover de linha de tabela/legenda */
   --good:#22C55E;              /* Positivo */
   --bad:#EF4444;               /* Negativo */
   --red:#EF4444;

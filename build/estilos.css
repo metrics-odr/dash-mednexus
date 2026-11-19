@@ -197,7 +197,7 @@
   table.dt thead th.sorted-asc::after{content:" ▲"; font-size:9px}
   table.dt thead th.sorted-desc::after{content:" ▼"; font-size:9px}
   table.dt tbody tr{cursor:pointer}
-  table.dt tbody tr:hover{background:var(--accent-blue-light)}
+  table.dt tbody tr:hover{background:var(--row-hover)}
   table.dt tbody tr.sel{background:var(--selected)}
   table.dt tfoot td{position:sticky; bottom:0; background:var(--tfoot); font-weight:700; border-top:2px solid var(--border); text-align:right}
   table.dt tfoot td.dim{text-align:left}
@@ -240,7 +240,7 @@
   .chart-legend{max-height:150px; overflow:auto; font-size:11.5px; border-top:1px solid var(--border); padding-top:6px}
   .chart-legend .cl-row{display:flex; align-items:center; gap:8px; padding:4px 6px; border-radius:6px;
     cursor:pointer; white-space:nowrap}
-  .chart-legend .cl-row:hover{background:var(--accent-blue-light)}
+  .chart-legend .cl-row:hover{background:var(--row-hover)}
   .chart-legend .cl-row.sel{background:var(--selected); font-weight:700}
   .chart-legend .cl-swatch{width:10px; height:10px; border-radius:2px; flex:0 0 auto}
   .chart-legend .cl-name{color:var(--ink); white-space:nowrap}
@@ -328,7 +328,7 @@
   table.dt thead th.stk-b{z-index:4; background-color:var(--thead)}
   table.dt tfoot td.stk-b{z-index:3; background-color:var(--tfoot)}
   table.dt .stk-edge{border-right:1px solid var(--border); box-shadow:2px 0 4px -2px rgba(0,0,0,.12)}
-  table.dt tbody tr:hover td.stk-b{background-color:var(--accent-blue-light)}
+  table.dt tbody tr:hover td.stk-b{background-color:var(--row-hover)}
   table.dt tbody tr.sel td.stk-b{background-color:var(--selected)}
   /* métricas mais compactas + centralizadas nas tabelas hierárquicas */
   table.dt.dt-center th, table.dt.dt-center td{padding:6px 4px}
